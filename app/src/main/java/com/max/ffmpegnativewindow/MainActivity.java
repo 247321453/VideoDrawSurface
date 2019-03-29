@@ -1,6 +1,12 @@
 package com.max.ffmpegnativewindow;
 
+import android.Manifest;
 import android.app.Activity;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.Surface;
@@ -8,34 +14,40 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.ImageView;
 
-public class MainActivity extends Activity implements SurfaceHolder.Callback{
+import net.kk.ffmpeg.VideoPlayer;
+
+import java.io.ByteArrayOutputStream;
+
+public class MainActivity extends BaseActivity implements SurfaceHolder.Callback, VideoPlayer.CallBack {
 
     private SurfaceView surfaceView;
     private SurfaceHolder surfaceHolder;
     private EditText editText;
     private boolean created = false;
-    private static final String TAG = "maxD";
+    private static final String TAG = "kkplayer";
 
-    // Used to load the 'native-lib' library on application startup.
-    static {
-        System.loadLibrary("native-lib");
+    private ImageView img;
+    private VideoPlayer player;
+
+    @Override
+    protected String[] getRequestPermissions() {
+        return new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
     }
 
     @Override
-    protected void onCreate(Bundle savedInstanceState) {
-        super.onCreate(savedInstanceState);
+    protected void doOnCreate(Bundle savedInstanceState) {
+        super.doOnCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
         editText = findViewById(R.id.file_path);
-
+        img = findViewById(R.id.img);
         surfaceView = (SurfaceView) findViewById(R.id.videoSurface);
         surfaceHolder = surfaceView.getHolder();
         surfaceHolder.addCallback(this);
+        player = new VideoPlayer();
     }
-
-    private native int native_play(Surface surface);
-    private native void native_setFile(String filepath);
 
     @Override
     public void surfaceChanged(SurfaceHolder holder, int format, int width, int height) {
@@ -44,6 +56,7 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         created = true;
+        player.setCallBack(surfaceHolder.getSurface(), this);
     }
 
     @Override
@@ -51,20 +64,66 @@ public class MainActivity extends Activity implements SurfaceHolder.Callback{
 
     }
 
-    public void onClicked(View view){
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+    }
 
-        if (!created){
+    public void onClicked(View view) {
+        if (!created) {
             Log.w(TAG, "surface not created, now return. ");
             return;
         }
-        String path = editText.getText().toString();
-        native_setFile(path);
-
+        final String path = editText.getText().toString();
+        view.setEnabled(false);
+        editText.setEnabled(false);
+        player.setDataSource(path);
         new Thread(new Runnable() {
             @Override
             public void run() {
-                native_play(surfaceHolder.getSurface());
+                int err = player.preload();
+                if (err != 0) {
+                    Log.e(TAG, "preload:" + err);
+                    return;
+                }
+                err = player.play();
+                Log.e(TAG, "play:" + err);
             }
         }).start();
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Thread.sleep(3000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                if (player.isPlaying()) {
+                    player.stop();
+                }
+                Log.i(TAG, "stop play");
+            }
+        }).start();
+    }
+
+    private boolean mShowed;
+
+    @Override
+    public void onFrameCallBack(byte[] nv21Data, int width, int height) {
+        if (mShowed) {
+            return;
+        }
+        mShowed = true;
+        YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
+        ByteArrayOutputStream fOut = new ByteArrayOutputStream();
+        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, fOut);
+        byte[] bitData = fOut.toByteArray();
+        final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                img.setImageBitmap(bitmap);
+            }
+        });
     }
 }
