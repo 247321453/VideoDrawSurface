@@ -2,7 +2,7 @@
 // Created by user on 2019/4/2.
 //
 #include "main.h"
-
+#include "native-lib.h"
 /*
 boolean	Z
 long	J
@@ -93,10 +93,7 @@ void jni_ffmpeg_init(JNIEnv *env, jclass) {
 }
 
 
-JavaVM *gVm;
-
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
-    gVm = vm;
     JNIEnv *env;
     vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
     jclass nativeEngineClass = (jclass) env->NewGlobalRef(env->FindClass(JNI_CLASS_NAME));
@@ -109,28 +106,14 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_stop",           "(J)V",                        (void *) jni_player_stop},
             {"native_close",          "(J)V",                        (void *) jni_player_close},
             {"native_get_status",     "(J)I",                        (void *) jni_player_get_status},
-            {"native_init_ffmpeg",    "()V",                         (void *) jni_ffmpeg_init}
+            {"native_init_ffmpeg",    "()V",                         (void *) jni_ffmpeg_init},
+            {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
-    if (env->RegisterNatives(nativeEngineClass, methods, 9) < 0) {
+    if (env->RegisterNatives(nativeEngineClass, methods, 10) < 0) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;
 }
 
 JNIEXPORT void JNI_OnUnload(JavaVM *vm, void *reserved) {
-    vm = NULL;
-}
-
-JNIEnv *getEnv() {
-    JNIEnv *env;
-    gVm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
-    return env;
-}
-
-JNIEnv *ensureEnvCreated() {
-    JNIEnv *env = getEnv();
-    if (env == NULL) {
-        gVm->AttachCurrentThread(&env, NULL);
-    }
-    return env;
 }

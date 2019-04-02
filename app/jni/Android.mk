@@ -15,7 +15,8 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 
 LOCAL_SRC_FILES := main.cpp \
     video_player.cpp \
-    av_rotation.cpp
+    av_rotation.cpp \
+    native-lib.cpp
 
 LOCAL_CFLAGS := -D__STDC_CONSTANT_MACROS
 

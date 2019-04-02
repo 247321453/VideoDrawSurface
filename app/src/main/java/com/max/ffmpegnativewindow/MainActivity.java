@@ -15,6 +15,7 @@ import android.view.SurfaceView;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import net.kk.ffmpeg.VideoPlayer;
 
@@ -77,33 +78,36 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         final String path = editText.getText().toString();
         view.setEnabled(false);
         editText.setEnabled(false);
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                VideoPlayer.testPlay(surfaceHolder.getSurface(), path);
+            }
+        }).start();
+        /*
         player.setDataSource(path);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                int err = player.preload();
-                if (err != 0) {
-                    Log.e(TAG, "preload:" + err);
-                    return;
-                }
-                err = player.play();
-                Log.e(TAG, "play:" + err);
+        if (player.isPlaying()) {
+            ((TextView) view).setText("play");
+            if (player.isPlaying()) {
+                player.stop();
             }
-        }).start();
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+        } else {
+            ((TextView) view).setText("stop");
+            new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    int err = player.preload();
+                    if (err != 0) {
+                        Log.e(TAG, "preload:" + err);
+                        return;
+                    }
+                    err = player.play();
+                    Log.e(TAG, "play:" + err);
                 }
-                if (player.isPlaying()) {
-                    player.stop();
-                }
-                Log.i(TAG, "stop play");
-            }
-        }).start();
+            }).start();
+        }
+        view.setEnabled(true);
+        */
     }
 
     private boolean mShowed;

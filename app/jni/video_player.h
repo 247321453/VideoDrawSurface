@@ -15,7 +15,7 @@ extern "C" {
 #include "libavutil/imgutils.h"
 };
 
-#define AUTO_ROTATION_FRAME 0
+#define AUTO_ROTATION_FRAME 1
 
 namespace kk {
     class VideoPlayer {
@@ -23,11 +23,11 @@ namespace kk {
         VideoPlayer();
 
         void SetSurface(ANativeWindow *surface) {
-            if (nativeWindow != NULL) {
-                ANativeWindow_release(nativeWindow);
-                nativeWindow = NULL;
+            if (pNativeWindow != NULL) {
+                ANativeWindow_release(pNativeWindow);
+                pNativeWindow = NULL;
             }
-            nativeWindow = surface;
+            pNativeWindow = surface;
         }
 
         void SetDataSource(const char *path) {
@@ -62,7 +62,7 @@ namespace kk {
         int mVideoStream;
         int mPlayWidth;
         int mPlayHeight;
-        ANativeWindow *nativeWindow = NULL;
+        ANativeWindow *pNativeWindow = NULL;
         AVFormatContext *pFormatCtx = NULL;
         AVCodecContext *pCodecCtx = NULL;
         AVCodec *pCodec = NULL;
@@ -71,6 +71,9 @@ namespace kk {
         AVFrame *pFrameNv21 = NULL;
         AVFrame *pFrame = NULL;
         AVFrame *pRotationFrame = NULL;
+        uint8_t *rBuf = NULL;
+        uint8_t *rgbaBuf = NULL;
+        uint8_t *nv21Buf = NULL;
         struct SwsContext *pRGBASwsCtx = nullptr;
         struct SwsContext *pNv21SwsCtx = nullptr;
 
@@ -78,14 +81,6 @@ namespace kk {
 
         jmethodID mCallBackId = nullptr;
         const char *mFileName = NULL;
-
-        struct SwsContext *
-        createRGBASwsContext(AVPixelFormat src_fmt, int src_width, int src_height,
-                             AVFrame *frameRGBA, int width, int height);
-
-        struct SwsContext *
-        createNv21SwsContext(AVPixelFormat src_fmt, int src_width, int src_height,
-                             AVFrame *frameNv21, int width, int height);
     };
 }
 

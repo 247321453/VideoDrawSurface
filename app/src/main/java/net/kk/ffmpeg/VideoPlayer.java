@@ -77,6 +77,10 @@ public class VideoPlayer implements Closeable {
         }
     }
 
+    public static int testPlay(Surface surface, String file){
+        return native_test_play(surface, file);
+    }
+
     private static boolean sInit;
 
     private static native void native_init_ffmpeg();
@@ -97,5 +101,5 @@ public class VideoPlayer implements Closeable {
 
     private native void native_close(long ptr);
 
-
+    private static native int native_test_play(Surface surface, String path);
 }
