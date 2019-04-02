@@ -78,7 +78,7 @@ namespace kk {
 
         bool mSoftMode;
 
-        void OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int width, int height);
+        void OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int len, int width, int height);
 
         jmethodID mCallBackId = nullptr;
         const char *mFileName = NULL;

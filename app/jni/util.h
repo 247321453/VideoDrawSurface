@@ -18,10 +18,6 @@ extern "C"{
 
 int av_get_rotation(AVStream *st);
 long getCurTime();
-int
-convert(AVFrame *frame, int rotation, int width, int height, uint8_t *nv21Data,
-        uint8_t *rgbaData);
-void av_frame_rotate_90(AVFrame *src, AVFrame *des);
-void av_frame_rotate_180(AVFrame *src, AVFrame *des);
-void av_frame_rotate_270(AVFrame *src, AVFrame *des);
+int av_yuv420p_to_nv21(AVFrame *frame, int width, int height, uint8_t *nv21Data);
+int av_frame_rotate(AVFrame *src, int rotation, AVFrame *dst);
 #endif //FFMPEGNATIVEWINDOW_AV_ROTATION_H

@@ -19,13 +19,13 @@ void VideoPlayer::Close() {
     mClose = true;
     Stop();
     mCallBackId = NULL;
-    if(rBuf != NULL) {
+    if (rBuf != NULL) {
         av_free(rBuf);
     }
-    if(rgbaBuf != NULL){
+    if (rgbaBuf != NULL) {
         av_free(rgbaBuf);
     }
-    if(nv21Buf != NULL){
+    if (nv21Buf != NULL) {
         av_free(nv21Buf);
     }
     if (pRotationFrame != NULL) {
@@ -71,16 +71,22 @@ void VideoPlayer::Stop() {
  * NV12:IOS只有这一种模式。存储顺序是先存Y，再UV交替存储。YYYYUVUVUV
  * NV21:安卓的模式。存储顺序是先存Y，再存U，再VU交替存储。YYYYVUVUVU
  */
-void VideoPlayer::OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int width, int height) {
+void VideoPlayer::OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int len, int width,
+                             int height) {
     if (mCallBackId != nullptr) {
-//        jbyte *data = (jbyte *) nv21Data;
-//        jbyteArray array = env->NewByteArray(yuvSize);
-//        if (array != NULL) {
-//            env->SetByteArrayRegion(array, 0, yuvSize, data);
-//            env->CallVoidMethod(obj, mCallBackId, array, width, height);
-//        } else {
-//            ALOGW("new byte array failed");
-//        }
+        uint8_t *yuvBuf = new uint8_t[len];
+        size_t y_step = width * height * sizeof(uint8_t);
+        memcpy(yuvBuf, frameNv21->data[0], y_step);//拷贝Y分量
+        memcpy(yuvBuf + y_step, frameNv21->data[1], y_step / 2);//调试到这里,data[2]没有值
+
+        jbyte *data = (jbyte *) yuvBuf;
+        jbyteArray array = env->NewByteArray(len);
+        if (array != NULL) {
+            env->SetByteArrayRegion(array, 0, len, data);
+            env->CallVoidMethod(obj, mCallBackId, array, width, height);
+        } else {
+            ALOGW("new byte array failed");
+        }
     }
 }
 
@@ -178,7 +184,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     AVFrame *tmpFrame;
     ANativeWindow_setBuffersGeometry(pNativeWindow, mPlayWidth, mPlayHeight,
                                      WINDOW_FORMAT_RGBA_8888);
-//    long time,cur;
+    long time, cur;
+    int yuvSize = mPlayWidth * mPlayHeight * 3 / 2;
     ALOGD("start av_read_frame, width=%d,height=%d", mPlayWidth, mPlayHeight);
     while (av_read_frame(pFormatCtx, &packet) >= 0) {
         if (!mPlaying) {
@@ -192,29 +199,27 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                 return -9;
             }
 
-            while (avcodec_receive_frame(pCodecCtx, pFrame) == 0)
-            {
+            while (avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
                 if (!mPlaying) {
                     break;
                 }
+                time = getCurTime();
                 if (AUTO_ROTATION_FRAME == 0 || mRotation == ROTATION_0) {
                     tmpFrame = pFrame;
-                } else if (mRotation == ROTATION_90) {
-                    av_frame_rotate_90(pFrame, pRotationFrame);
-                    tmpFrame = pRotationFrame;
-                } else if (mRotation == ROTATION_180) {
-                    av_frame_rotate_180(pFrame, pRotationFrame);
-                    tmpFrame = pRotationFrame;
-                } else if (mRotation == ROTATION_270) {
-                    av_frame_rotate_270(pFrame, pRotationFrame);
-                    tmpFrame = pRotationFrame;
                 } else {
-                    tmpFrame = pFrame;
+                    av_frame_rotate(pFrame, mRotation, pRotationFrame);
+                    tmpFrame = pRotationFrame;
                 }
+                cur = getCurTime();
+                ALOGD("yuv rotate use time %ld", (cur - time));
+                time = cur;
                 if (pNativeWindow != NULL) {
                     sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
                               tmpFrame->linesize, 0, mPlayHeight,
                               pFrameRGBA->data, pFrameRGBA->linesize);
+                    cur = getCurTime();
+                    ALOGD("sws_scale rgba use time %ld", (cur - time));
+                    time = cur;
                     if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
                         uint8_t *dst = (uint8_t *) windowBuffer.bits;
                         int dstStride = windowBuffer.stride * 4;
@@ -231,7 +236,10 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                     sws_scale(pNv21SwsCtx, (uint8_t const *const *) tmpFrame->data,
                               tmpFrame->linesize, 0, mPlayHeight,
                               pFrameNv21->data, pFrameNv21->linesize);
-                    OnCallBack(env, obj, pFrameNv21, mPlayWidth, mPlayHeight);
+                    cur = getCurTime();
+                    ALOGD("sws_scale nv21 use time %ld", (cur - time));
+                    time = cur;
+                    OnCallBack(env, obj, pFrameNv21, yuvSize, mPlayWidth, mPlayHeight);
                 }
             }
             if (ret < 0 && ret != AVERROR_EOF) {
