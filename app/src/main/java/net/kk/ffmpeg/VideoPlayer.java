@@ -1,5 +1,7 @@
 package net.kk.ffmpeg;
 
+import android.support.annotation.Keep;
+import android.support.annotation.WorkerThread;
 import android.view.Surface;
 
 import java.io.Closeable;
@@ -18,6 +20,8 @@ import java.io.Closeable;
 public class VideoPlayer implements Closeable {
 
     public interface CallBack {
+        void onVideoProgress(double cur, double all);
+
         void onFrameCallBack(byte[] nv21Data, int width, int height);
     }
 
@@ -27,28 +31,40 @@ public class VideoPlayer implements Closeable {
 
     private long nativePtr;
     private CallBack mCallBack;
+    private String source;
 
     public VideoPlayer() {
         nativePtr = native_create();
     }
 
-    public void setCallBack(Surface surface, CallBack dataCallBack) {
+    public void setCallBack(Surface surface, CallBack dataCallBack, boolean needNv21Data) {
         mCallBack = dataCallBack;
-        native_set_callback(nativePtr, surface, dataCallBack != null);
+        native_set_callback(nativePtr, surface, needNv21Data);
+    }
+
+    public String getSource() {
+        return source;
     }
 
     public void setDataSource(String path) {
+        source = path;
         native_set_datasource(nativePtr, path);
     }
 
+    @WorkerThread
     public int play() {
         init();
         return native_play(nativePtr);
     }
 
+    @WorkerThread
     public int preload() {
         init();
         return native_preload(nativePtr);
+    }
+
+    public void release() {
+        native_release(nativePtr);
     }
 
     public void stop() {
@@ -60,9 +76,25 @@ public class VideoPlayer implements Closeable {
         native_close(nativePtr);
     }
 
-    public void onFrameCallBack(byte[] nv21Data, int width, int height) {
+    public int seek(int ms) {
+        return native_seek(nativePtr, ms);
+    }
+
+    public double getPlayTime() {
+        return native_get_cur_time(nativePtr);
+    }
+
+    public double getVideoTime() {
+        return native_get_all_time(nativePtr);
+    }
+
+    @Keep
+    public void onFrameCallBack(byte[] nv21Data, int width, int height, double progress, double alltime) {
         if (mCallBack != null) {
-            mCallBack.onFrameCallBack(nv21Data, width, height);
+            mCallBack.onVideoProgress(progress, alltime);
+            if(nv21Data != null) {
+                mCallBack.onFrameCallBack(nv21Data, width, height);
+            }
         }
     }
 
@@ -100,6 +132,14 @@ public class VideoPlayer implements Closeable {
     private native void native_stop(long ptr);
 
     private native void native_close(long ptr);
+
+    private native void native_release(long ptr);
+
+    private native double native_get_cur_time(long ptr);
+
+    private native double native_get_all_time(long ptr);
+
+    private native int native_seek(long ptr, double ms);
 
 //    private static native int native_test_play(Surface surface, String path);
 }

@@ -23,19 +23,23 @@ namespace kk {
         VideoPlayer();
 
         void SetSurface(ANativeWindow *surface) {
-            if (pNativeWindow != NULL) {
+            if (pNativeWindow != nullptr) {
                 ANativeWindow_release(pNativeWindow);
-                pNativeWindow = NULL;
+                pNativeWindow = nullptr;
             }
             pNativeWindow = surface;
         }
 
         void SetDataSource(const char *path) {
+            Release();
             mPreLoad = false;
             mFileName = path;
         }
 
-        void SetCallBack(jmethodID callback);
+        void SetCallBack(jmethodID callback, bool needNv21Data) {
+            mCallBackId = callback;
+            mNeedNv21Data = needNv21Data;
+        }
 
         int PreLoad();
 
@@ -44,6 +48,18 @@ namespace kk {
         void Stop();
 
         void Close();
+
+        void Release();
+
+        int Seek(double time);
+
+        double GetPlayDuration() {
+            return mVideoCurDuration;
+        }
+
+        double GetVideoDuration() {
+            return mVideoAllDuration;
+        }
 
         bool IsPlaying() {
             return mPlaying;
@@ -59,29 +75,31 @@ namespace kk {
         bool mPlaying;
         bool mClose;
         int mRotation;
-        int mVideoStream;
+        int mVideoStream = -1;
         int mPlayWidth;
         int mPlayHeight;
-        ANativeWindow *pNativeWindow = NULL;
-        AVFormatContext *pFormatCtx = NULL;
-        AVCodecContext *pCodecCtx = NULL;
-        AVCodec *pCodec = NULL;
-        AVFrame *pFrameRGBA = NULL;
-        AVFrame *pFrameNv21 = NULL;
-        AVFrame *pFrame = NULL;
-        AVFrame *pRotationFrame = NULL;
-        uint8_t *rBuf = NULL;
-        uint8_t *rgbaBuf = NULL;
-        uint8_t *nv21Buf = NULL;
+        double mVideoCurDuration;
+        double mVideoAllDuration;
+        bool mNeedNv21Data = false;
+        ANativeWindow *pNativeWindow = nullptr;
+        AVFormatContext *pFormatCtx = nullptr;
+        AVCodecContext *pCodecCtx = nullptr;
+        AVCodec *pCodec = nullptr;
+        AVFrame *pFrameRGBA = nullptr;
+        AVFrame *pFrameNv21 = nullptr;
+        AVFrame *pFrame = nullptr;
+        AVFrame *pRotationFrame = nullptr;
+        AVRational pTimeBase;
+        uint8_t *pRotateBuf = nullptr;
+        uint8_t *pRgbaBuf = nullptr;
+        uint8_t *pNv21Buf = nullptr;
         struct SwsContext *pRGBASwsCtx = nullptr;
         struct SwsContext *pNv21SwsCtx = nullptr;
 
         bool mSoftMode;
 
-        void OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int len, int width, int height);
-
         jmethodID mCallBackId = nullptr;
-        const char *mFileName = NULL;
+        const char *mFileName = nullptr;
     };
 }
 

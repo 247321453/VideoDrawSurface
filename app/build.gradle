@@ -15,7 +15,7 @@ android {
 
         externalNativeBuild {
             ndkBuild {
-                cppFlags ""
+               // cppFlags "-DDISABLE_LOG"
             }
         }
     }

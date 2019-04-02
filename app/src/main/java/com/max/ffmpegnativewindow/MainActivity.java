@@ -8,6 +8,7 @@ import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.os.Bundle;
+import android.text.TextUtils;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
@@ -57,7 +58,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         created = true;
-        player.setCallBack(surfaceHolder.getSurface(), this);
+        player.setCallBack(surfaceHolder.getSurface(), this, false);
     }
 
     @Override
@@ -67,10 +68,11 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
 
     @Override
     protected void onDestroy() {
+        player.close();
         super.onDestroy();
     }
 
-    public void onClicked(View view) {
+    public void onClicked(final View view) {
         if (!created) {
             Log.w(TAG, "surface not created, now return. ");
             return;
@@ -84,7 +86,9 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
 //                VideoPlayer.testPlay(surfaceHolder.getSurface(), path);
 //            }
 //        }).start();
-        player.setDataSource(path);
+        if(!TextUtils.equals(player.getSource(), path)) {
+            player.setDataSource(path);
+        }
         if (player.isPlaying()) {
             ((TextView) view).setText("play");
             if (player.isPlaying()) {
@@ -96,13 +100,28 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             new Thread(new Runnable() {
                 @Override
                 public void run() {
+                    try {
+                        Thread.sleep(100);
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
                     int err = player.preload();
-                    if (err != 0) {
+                    if (err < 0) {
                         Log.e(TAG, "preload:" + err);
                         return;
                     }
+                    Log.i(TAG, "video time:" + player.getVideoTime());
+                    player.seek(0);
                     err = player.play();
-                    Log.e(TAG, "play:" + err);
+                    if(err != 0) {
+                        Log.e(TAG, "play:" + err);
+                    }
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            ((TextView) view).setText("play");
+                        }
+                    });
                 }
             }).start();
         }
@@ -110,6 +129,11 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
     }
 
     private long time;
+
+    @Override
+    public void onVideoProgress(double cur, double all) {
+        //时间
+    }
 
     @Override
     public void onFrameCallBack(byte[] nv21Data, int width, int height) {
@@ -123,6 +147,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    BitmapUtils.dispose(img);
                     img.setImageBitmap(bitmap);
                 }
             });

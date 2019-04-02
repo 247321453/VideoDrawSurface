@@ -25,14 +25,12 @@ jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jobject surface, jb
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         ANativeWindow *nativeWindow = ANativeWindow_fromSurface(env, surface);
         player->SetSurface(nativeWindow);
-        if (callback) {
-            jclass clazz = env->GetObjectClass(obj);
-            jmethodID javaCallback = env->GetMethodID(clazz, "onFrameCallBack", "([BII)V");
-            if (javaCallback != NULL) {
-                player->SetCallBack(javaCallback);
-            } else {
-                ALOGW("not found callback onFrameCallBack([BII)V");
-            }
+        jclass clazz = env->GetObjectClass(obj);
+        jmethodID javaCallback = env->GetMethodID(clazz, "onFrameCallBack", "([BIIDD)V");
+        if (javaCallback != NULL) {
+            player->SetCallBack(javaCallback, callback);
+        } else {
+            ALOGW("not found callback onFrameCallBack([BIIDD)V");
         }
     }
 }
@@ -40,8 +38,11 @@ jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jobject surface, jb
 void jni_set_datasource(JNIEnv *env, jobject obj, jlong ptr, jstring path) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        jboolean b = static_cast<jboolean>(true);
-        const char *filename = env->GetStringUTFChars(path, &b);
+        const char *_filename = env->GetStringUTFChars(path, NULL);
+        int len = sizeof(_filename)/sizeof(_filename[0]);
+        char* filename = new char[len];
+        strcpy(filename, _filename);
+        env->ReleaseStringUTFChars(path, _filename);
         player->SetDataSource(filename);
     }
 }
@@ -84,7 +85,38 @@ void jni_player_close(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         player->Close();
+        free(player);
     }
+}
+
+void jni_player_release(JNIEnv *env, jobject obj, jlong ptr) {
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        player->Release();
+    }
+}
+jint jni_player_seek(JNIEnv *env, jobject obj, jlong ptr, jdouble time) {
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->Seek(time);
+    }
+    return -1;
+}
+
+double jni_player_get_play_time(JNIEnv *env, jobject obj, jlong ptr) {
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->GetVideoDuration();
+    }
+    return 0;
+}
+
+double jni_player_get_video_time(JNIEnv *env, jobject obj, jlong ptr) {
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->GetVideoDuration();
+    }
+    return 0;
 }
 
 void jni_ffmpeg_init(JNIEnv *env, jclass) {
@@ -104,11 +136,15 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_preload",        "(J)I",                        (void *) jni_player_preload},
             {"native_stop",           "(J)V",                        (void *) jni_player_stop},
             {"native_close",          "(J)V",                        (void *) jni_player_close},
+            {"native_release",        "(J)V",                        (void *) jni_player_release},
+            {"native_seek",           "(JD)I",                       (void *) jni_player_seek},
+            {"native_get_cur_time",   "(J)D",                        (void *) jni_player_get_play_time},
+            {"native_get_all_time",   "(J)D",                        (void *) jni_player_get_video_time},
             {"native_get_status",     "(J)I",                        (void *) jni_player_get_status},
             {"native_init_ffmpeg",    "()V",                         (void *) jni_ffmpeg_init},
           //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
-    if (env->RegisterNatives(nativeEngineClass, methods, 9) < 0) {
+    if (env->RegisterNatives(nativeEngineClass, methods, 13) < 0) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;
