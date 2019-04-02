@@ -1,0 +1,3 @@
+[submodule "app/jni/libyuv"]
+	path = app/jni/libyuv
+	url = https://github.com/247321453/libyuv.git

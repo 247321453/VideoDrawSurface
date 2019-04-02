@@ -4,7 +4,7 @@
 
 #include <android/native_window_jni.h>
 #include "video_player.h"
-#include "av_rotation.h"
+#include "util.h"
 #include "debug.h"
 
 using namespace kk;
@@ -19,24 +19,13 @@ void VideoPlayer::Close() {
     mClose = true;
     Stop();
     mCallBackId = NULL;
-    if(rBuf != NULL) {
-        av_free(rBuf);
+    if (pNv21Data != NULL) {
+        free(pNv21Data);
     }
-    if(rgbaBuf != NULL){
-        av_free(rgbaBuf);
+    if (pRgbaData != NULL) {
+        free(pRgbaData);
     }
-    if(nv21Buf != NULL){
-        av_free(nv21Buf);
-    }
-    if (pRotationFrame != NULL) {
-        av_free(pRotationFrame);
-    }
-    if (pFrameRGBA != NULL) {
-        av_free(pFrameRGBA);
-    }
-    if (pFrameNv21 != NULL) {
-        av_free(pFrameNv21);
-    }
+
     if (pFrame != NULL) {
         av_free(pFrame);
     }
@@ -71,28 +60,16 @@ void VideoPlayer::Stop() {
  * NV12:IOS只有这一种模式。存储顺序是先存Y，再UV交替存储。YYYYUVUVUV
  * NV21:安卓的模式。存储顺序是先存Y，再存U，再VU交替存储。YYYYVUVUVU
  */
-void VideoPlayer::OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int width, int height) {
+void VideoPlayer::OnCallBack(JNIEnv *env, jobject obj, uint8_t *nv21Data, int width, int height, int yuvSize) {
     if (mCallBackId != nullptr) {
-//        int framelength = width * height;
-//        int len = framelength * 3 / 2;
-//        size_t Ystep = framelength * sizeof(uint8_t);
-//
-//        uint8_t *yData = frameNv21->data[0];
-//        uint8_t *vuData = frameNv21->data[1];
-//
-//        ALOGD("all=%d, yData:len=%d, vuData:len=%d", len,
-//              sizeof(yData) / sizeof(yData[0]),
-//              sizeof(vuData) / sizeof(vuData[0]));
-//
-//        uint8_t *yuvData = new uint8_t[len];
-//        memcpy(yuvData, yData, Ystep);//拷贝Y分量
-//        memcpy(yuvData + Ystep, frameNv21->data[1], Ystep / 2);//vu
-//
-//        jbyte *data = (jbyte *) yuvData;
-//        jbyteArray array = env->NewByteArray(len);
-//        ALOGD("yuv:len=%d, size=%d", len, (width * height * 3 / 2));
-//        env->SetByteArrayRegion(array, 0, len, data);
-//        env->CallVoidMethod(obj, mCallBackId, array);
+        jbyte *data = (jbyte *) nv21Data;
+        jbyteArray array = env->NewByteArray(yuvSize);
+        if(array != NULL){
+            env->SetByteArrayRegion(array, 0, yuvSize, data);
+            env->CallVoidMethod(obj, mCallBackId, array, width, height);
+        }else{
+            ALOGW("new byte array failed");
+        }
     }
 }
 
@@ -127,71 +104,23 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (pFrame == NULL) {
         pFrame = av_frame_alloc();
     }
-
-    if (pRotationFrame == NULL) {
-        pRotationFrame = av_frame_alloc();
-        int numBytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, mPlayWidth, mPlayHeight, 1);
-
-        rBuf = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
-
-        av_image_fill_arrays(pRotationFrame->data, pRotationFrame->linesize,
-                             rBuf, AV_PIX_FMT_YUV420P,
-                             mPlayWidth, mPlayHeight, 1);
-    }
-
+    int rgbaSize = 4 * videoWidth * videoHeight;
     if (pNativeWindow != NULL) {
-        if (pFrameRGBA == NULL) {
-            pFrameRGBA = av_frame_alloc();
-        }
-        if (pRGBASwsCtx == nullptr) {
-            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, mPlayWidth, mPlayHeight, 1);
-
-            rgbaBuf = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
-
-            av_image_fill_arrays(pFrameRGBA->data, pFrameRGBA->linesize,
-                                 rgbaBuf, AV_PIX_FMT_RGBA,
-                                 mPlayWidth, mPlayHeight, 1);
-            pRGBASwsCtx = sws_getContext(mPlayWidth,
-                                         mPlayHeight,
-                                         pCodecCtx->pix_fmt,
-                                         mPlayWidth,
-                                         mPlayHeight,
-                                         AV_PIX_FMT_RGBA,
-                                         SWS_BILINEAR,
-                                         NULL,
-                                         NULL,
-                                         NULL);
+        if (pRgbaData == NULL) {
+            pRgbaData = (uint8_t *) malloc(sizeof(uint8_t) * rgbaSize);
         }
     }
-
+    int yuvSize = mPlayWidth * mPlayHeight * 3 / 2;
     if (mCallBackId != nullptr) {
-        if (pFrameNv21 == NULL) {
-            pFrameNv21 = av_frame_alloc();
-        }
-        if (pNv21SwsCtx == nullptr) {
-            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_NV21, mPlayWidth, mPlayHeight, 1);
-
-            nv21Buf = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
-
-            av_image_fill_arrays(pFrameNv21->data, pFrameNv21->linesize,
-                                 nv21Buf, AV_PIX_FMT_NV21,
-                                 mPlayWidth, mPlayHeight, 1);
-            pNv21SwsCtx = sws_getContext(mPlayWidth,
-                                         mPlayHeight,
-                                         pCodecCtx->pix_fmt,
-                                         mPlayWidth,
-                                         mPlayHeight,
-                                         AV_PIX_FMT_NV21,
-                                         SWS_FAST_BILINEAR,
-                                         NULL,
-                                         NULL,
-                                         NULL);
+        if (pNv21Data == NULL) {
+            pNv21Data = (uint8_t *) malloc(sizeof(uint8_t) * yuvSize);
         }
     }
     int h;
     AVFrame *tmpFrame;
     ANativeWindow_setBuffersGeometry(pNativeWindow, mPlayWidth, mPlayHeight,
                                      WINDOW_FORMAT_RGBA_8888);
+
     ALOGD("start av_read_frame, width=%d,height=%d", mPlayWidth, mPlayHeight);
     while (av_read_frame(pFormatCtx, &packet) >= 0) {
         if (!mPlaying) {
@@ -210,44 +139,29 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                 if (!mPlaying) {
                     break;
                 }
-                if (AUTO_ROTATION_FRAME == 0 || mRotation == ROTATION_0) {
-                    tmpFrame = pFrame;
-                } else if (mRotation == ROTATION_90) {
-                    av_frame_rotate_90(pFrame, pRotationFrame);
-                    tmpFrame = pRotationFrame;
-                } else if (mRotation == ROTATION_180) {
-                    av_frame_rotate_180(pFrame, pRotationFrame);
-                    tmpFrame = pRotationFrame;
-                } else if (mRotation == ROTATION_270) {
-                    av_frame_rotate_270(pFrame, pRotationFrame);
-                    tmpFrame = pRotationFrame;
-                } else {
-                    tmpFrame = pFrame;
+                ret = convert(pFrame, mRotation, videoWidth, videoHeight, pNv21Data, pRgbaData);
+                if (ret != 0) {
+                    ALOGE("convert error:%d", ret);
+                    break;
                 }
                 if (pNativeWindow != NULL) {
-                    sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
-                              tmpFrame->linesize, 0, mPlayHeight,
-                              pFrameRGBA->data, pFrameRGBA->linesize);
-                    if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
+                    if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) == 0) {
+                        //memcpy((uint8_t *) windowBuffer.bits, pRgbaData, rgbaSize);
                         uint8_t *dst = (uint8_t *) windowBuffer.bits;
-//                        uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
-//                        size_t len = static_cast<size_t>(4 * mPlayWidth * mPlayHeight);
-//                        memcpy(dst, src, len);
                         int dstStride = windowBuffer.stride * 4;
-                        uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
-                        size_t srcStride = (size_t) pFrameRGBA->linesize[0];
+                        uint8_t *src = pRgbaData;
+                        size_t src_stride = static_cast<size_t>(mPlayWidth * 4);
                         // 由于window的stride和帧的stride不同,因此需要逐行复制
                         for (h = 0; h < mPlayHeight; h++) {
-                            memcpy(dst + h * dstStride, src + h * srcStride, srcStride);
+                            memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
                         }
                         ANativeWindow_unlockAndPost(pNativeWindow);
+                    } else {
+                        break;
                     }
                 }
                 if (mCallBackId != nullptr) {
-                    sws_scale(pNv21SwsCtx, (uint8_t const *const *) tmpFrame->data,
-                              tmpFrame->linesize, 0, mPlayHeight,
-                              pFrameNv21->data, pFrameNv21->linesize);
-                    OnCallBack(env, obj, pFrameNv21, mPlayWidth, mPlayHeight);
+                    OnCallBack(env, obj, pNv21Data, mPlayWidth, mPlayHeight, yuvSize);
                 }
             }
             if (ret < 0 && ret != AVERROR_EOF) {
@@ -304,35 +218,11 @@ int VideoPlayer::PreLoad() {
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);//用于查找FFmpeg的解码器。
     //函数的参数是一个解码器的ID，返回查找到的解码器（没有找到就返回NULL）
 
-    switch (pCodecCtx->codec_id){
-        case AV_CODEC_ID_H264:
-            ALOGD("code::h264_mediacodec");
-            pCodec = avcodec_find_decoder_by_name("h264_mediacodec");//硬解码264
-            if (pCodec == NULL) {
-                return -1;
-            }
-            break;
-        case AV_CODEC_ID_MPEG4:
-            ALOGD("code::mpeg4_mediacodec");
-            pCodec = avcodec_find_decoder_by_name("mpeg4_mediacodec");//硬解码mpeg4
-            if (pCodec == NULL) {
-                return -1;
-            }
-            break;
-        case AV_CODEC_ID_HEVC:
-            ALOGD("code::hevc_mediacodec");
-            pCodec = avcodec_find_decoder_by_name("hevc_mediacodec");//硬解码265
-            if (pCodec == NULL) {
-                return -1;
-            }
-            break;
-        default:
-            ALOGD("code::default");
-            pCodec = avcodec_find_decoder(pCodecCtx->codec_id);//软解
-            if (pCodec == NULL) {
-                return -1;
-            }
-            break;
+    mSoftMode = true;
+    ALOGD("code::default");
+    pCodec = avcodec_find_decoder(pCodecCtx->codec_id);//软解
+    if (pCodec == NULL) {
+        return -5;
     }
 //    pParserCtx = av_parser_init(pCodec->id);
 //

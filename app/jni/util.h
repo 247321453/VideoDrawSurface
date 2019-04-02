@@ -17,8 +17,11 @@ extern "C"{
 #define ROTATION_270 3
 
 int av_get_rotation(AVStream *st);
+long getCurTime();
+int
+convert(AVFrame *frame, int rotation, int width, int height, uint8_t *nv21Data,
+        uint8_t *rgbaData);
 void av_frame_rotate_90(AVFrame *src, AVFrame *des);
 void av_frame_rotate_180(AVFrame *src, AVFrame *des);
 void av_frame_rotate_270(AVFrame *src, AVFrame *des);
-
 #endif //FFMPEGNATIVEWINDOW_AV_ROTATION_H

@@ -2,7 +2,6 @@
 // Created by user on 2019/4/2.
 //
 #include "main.h"
-#include "native-lib.h"
 /*
 boolean	Z
 long	J
@@ -107,9 +106,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_close",          "(J)V",                        (void *) jni_player_close},
             {"native_get_status",     "(J)I",                        (void *) jni_player_get_status},
             {"native_init_ffmpeg",    "()V",                         (void *) jni_ffmpeg_init},
-            {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
+          //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
-    if (env->RegisterNatives(nativeEngineClass, methods, 10) < 0) {
+    if (env->RegisterNatives(nativeEngineClass, methods, 9) < 0) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;

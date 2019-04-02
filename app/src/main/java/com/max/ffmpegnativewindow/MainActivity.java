@@ -78,19 +78,19 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         final String path = editText.getText().toString();
         view.setEnabled(false);
         editText.setEnabled(false);
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                VideoPlayer.testPlay(surfaceHolder.getSurface(), path);
-            }
-        }).start();
-        /*
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                VideoPlayer.testPlay(surfaceHolder.getSurface(), path);
+//            }
+//        }).start();
         player.setDataSource(path);
         if (player.isPlaying()) {
             ((TextView) view).setText("play");
             if (player.isPlaying()) {
                 player.stop();
             }
+            editText.setEnabled(true);
         } else {
             ((TextView) view).setText("stop");
             new Thread(new Runnable() {
@@ -107,27 +107,25 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             }).start();
         }
         view.setEnabled(true);
-        */
     }
 
-    private boolean mShowed;
+    private long time;
 
     @Override
     public void onFrameCallBack(byte[] nv21Data, int width, int height) {
-        if (mShowed) {
-            return;
+        if (System.currentTimeMillis() - time > 500) {
+            time = System.currentTimeMillis();
+            YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
+            ByteArrayOutputStream fOut = new ByteArrayOutputStream();
+            yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, fOut);
+            byte[] bitData = fOut.toByteArray();
+            final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    img.setImageBitmap(bitmap);
+                }
+            });
         }
-        mShowed = true;
-        YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
-        ByteArrayOutputStream fOut = new ByteArrayOutputStream();
-        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, fOut);
-        byte[] bitData = fOut.toByteArray();
-        final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
-        runOnUiThread(new Runnable() {
-            @Override
-            public void run() {
-                img.setImageBitmap(bitmap);
-            }
-        });
     }
 }
