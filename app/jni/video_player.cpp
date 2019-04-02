@@ -19,13 +19,24 @@ void VideoPlayer::Close() {
     mClose = true;
     Stop();
     mCallBackId = NULL;
-    if (pNv21Data != NULL) {
-        free(pNv21Data);
+    if(rBuf != NULL) {
+        av_free(rBuf);
     }
-    if (pRgbaData != NULL) {
-        free(pRgbaData);
+    if(rgbaBuf != NULL){
+        av_free(rgbaBuf);
     }
-
+    if(nv21Buf != NULL){
+        av_free(nv21Buf);
+    }
+    if (pRotationFrame != NULL) {
+        av_free(pRotationFrame);
+    }
+    if (pFrameRGBA != NULL) {
+        av_free(pFrameRGBA);
+    }
+    if (pFrameNv21 != NULL) {
+        av_free(pFrameNv21);
+    }
     if (pFrame != NULL) {
         av_free(pFrame);
     }
@@ -60,16 +71,16 @@ void VideoPlayer::Stop() {
  * NV12:IOS只有这一种模式。存储顺序是先存Y，再UV交替存储。YYYYUVUVUV
  * NV21:安卓的模式。存储顺序是先存Y，再存U，再VU交替存储。YYYYVUVUVU
  */
-void VideoPlayer::OnCallBack(JNIEnv *env, jobject obj, uint8_t *nv21Data, int width, int height, int yuvSize) {
+void VideoPlayer::OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int width, int height) {
     if (mCallBackId != nullptr) {
-        jbyte *data = (jbyte *) nv21Data;
-        jbyteArray array = env->NewByteArray(yuvSize);
-        if(array != NULL){
-            env->SetByteArrayRegion(array, 0, yuvSize, data);
-            env->CallVoidMethod(obj, mCallBackId, array, width, height);
-        }else{
-            ALOGW("new byte array failed");
-        }
+//        jbyte *data = (jbyte *) nv21Data;
+//        jbyteArray array = env->NewByteArray(yuvSize);
+//        if (array != NULL) {
+//            env->SetByteArrayRegion(array, 0, yuvSize, data);
+//            env->CallVoidMethod(obj, mCallBackId, array, width, height);
+//        } else {
+//            ALOGW("new byte array failed");
+//        }
     }
 }
 
@@ -98,29 +109,76 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     mPlaying = true;
     AVPacket packet;
     ANativeWindow_Buffer windowBuffer;
-    int videoWidth = pCodecCtx->width;
-    int videoHeight = pCodecCtx->height;
 
     if (pFrame == NULL) {
         pFrame = av_frame_alloc();
     }
-    int rgbaSize = 4 * videoWidth * videoHeight;
+
+    if (pRotationFrame == NULL) {
+        pRotationFrame = av_frame_alloc();
+        int numBytes = av_image_get_buffer_size(AV_PIX_FMT_YUV420P, mPlayWidth, mPlayHeight, 1);
+
+        rBuf = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
+
+        av_image_fill_arrays(pRotationFrame->data, pRotationFrame->linesize,
+                             rBuf, AV_PIX_FMT_YUV420P,
+                             mPlayWidth, mPlayHeight, 1);
+    }
+
     if (pNativeWindow != NULL) {
-        if (pRgbaData == NULL) {
-            pRgbaData = (uint8_t *) malloc(sizeof(uint8_t) * rgbaSize);
+        if (pFrameRGBA == NULL) {
+            pFrameRGBA = av_frame_alloc();
+        }
+        if (pRGBASwsCtx == nullptr) {
+            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_RGBA, mPlayWidth, mPlayHeight, 1);
+
+            rgbaBuf = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
+
+            av_image_fill_arrays(pFrameRGBA->data, pFrameRGBA->linesize,
+                                 rgbaBuf, AV_PIX_FMT_RGBA,
+                                 mPlayWidth, mPlayHeight, 1);
+            pRGBASwsCtx = sws_getContext(mPlayWidth,
+                                         mPlayHeight,
+                                         pCodecCtx->pix_fmt,
+                                         mPlayWidth,
+                                         mPlayHeight,
+                                         AV_PIX_FMT_RGBA,
+                                         SWS_BILINEAR,
+                                         NULL,
+                                         NULL,
+                                         NULL);
         }
     }
-    int yuvSize = mPlayWidth * mPlayHeight * 3 / 2;
+
     if (mCallBackId != nullptr) {
-        if (pNv21Data == NULL) {
-            pNv21Data = (uint8_t *) malloc(sizeof(uint8_t) * yuvSize);
+        if (pFrameNv21 == NULL) {
+            pFrameNv21 = av_frame_alloc();
+        }
+        if (pNv21SwsCtx == nullptr) {
+            int numBytes = av_image_get_buffer_size(AV_PIX_FMT_NV21, mPlayWidth, mPlayHeight, 1);
+
+            nv21Buf = (uint8_t *) av_malloc(numBytes * sizeof(uint8_t));
+
+            av_image_fill_arrays(pFrameNv21->data, pFrameNv21->linesize,
+                                 nv21Buf, AV_PIX_FMT_NV21,
+                                 mPlayWidth, mPlayHeight, 1);
+            pNv21SwsCtx = sws_getContext(mPlayWidth,
+                                         mPlayHeight,
+                                         pCodecCtx->pix_fmt,
+                                         mPlayWidth,
+                                         mPlayHeight,
+                                         AV_PIX_FMT_NV21,
+                                         SWS_FAST_BILINEAR,
+                                         NULL,
+                                         NULL,
+                                         NULL);
         }
     }
     int h;
     AVFrame *tmpFrame;
     ANativeWindow_setBuffersGeometry(pNativeWindow, mPlayWidth, mPlayHeight,
                                      WINDOW_FORMAT_RGBA_8888);
-
+//    long time,cur;
     ALOGD("start av_read_frame, width=%d,height=%d", mPlayWidth, mPlayHeight);
     while (av_read_frame(pFormatCtx, &packet) >= 0) {
         if (!mPlaying) {
@@ -134,34 +192,46 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                 return -9;
             }
 
-            while (avcodec_receive_frame(pCodecCtx, pFrame) == 0)//解码出来的frame?
+            while (avcodec_receive_frame(pCodecCtx, pFrame) == 0)
             {
                 if (!mPlaying) {
                     break;
                 }
-                ret = convert(pFrame, mRotation, videoWidth, videoHeight, pNv21Data, pRgbaData);
-                if (ret != 0) {
-                    ALOGE("convert error:%d", ret);
-                    break;
+                if (AUTO_ROTATION_FRAME == 0 || mRotation == ROTATION_0) {
+                    tmpFrame = pFrame;
+                } else if (mRotation == ROTATION_90) {
+                    av_frame_rotate_90(pFrame, pRotationFrame);
+                    tmpFrame = pRotationFrame;
+                } else if (mRotation == ROTATION_180) {
+                    av_frame_rotate_180(pFrame, pRotationFrame);
+                    tmpFrame = pRotationFrame;
+                } else if (mRotation == ROTATION_270) {
+                    av_frame_rotate_270(pFrame, pRotationFrame);
+                    tmpFrame = pRotationFrame;
+                } else {
+                    tmpFrame = pFrame;
                 }
                 if (pNativeWindow != NULL) {
-                    if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) == 0) {
-                        //memcpy((uint8_t *) windowBuffer.bits, pRgbaData, rgbaSize);
+                    sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
+                              tmpFrame->linesize, 0, mPlayHeight,
+                              pFrameRGBA->data, pFrameRGBA->linesize);
+                    if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
                         uint8_t *dst = (uint8_t *) windowBuffer.bits;
                         int dstStride = windowBuffer.stride * 4;
-                        uint8_t *src = pRgbaData;
-                        size_t src_stride = static_cast<size_t>(mPlayWidth * 4);
+                        uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
+                        size_t srcStride = (size_t) pFrameRGBA->linesize[0];
                         // 由于window的stride和帧的stride不同,因此需要逐行复制
                         for (h = 0; h < mPlayHeight; h++) {
-                            memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
+                            memcpy(dst + h * dstStride, src + h * srcStride, srcStride);
                         }
                         ANativeWindow_unlockAndPost(pNativeWindow);
-                    } else {
-                        break;
                     }
                 }
                 if (mCallBackId != nullptr) {
-                    OnCallBack(env, obj, pNv21Data, mPlayWidth, mPlayHeight, yuvSize);
+                    sws_scale(pNv21SwsCtx, (uint8_t const *const *) tmpFrame->data,
+                              tmpFrame->linesize, 0, mPlayHeight,
+                              pFrameNv21->data, pFrameNv21->linesize);
+                    OnCallBack(env, obj, pFrameNv21, mPlayWidth, mPlayHeight);
                 }
             }
             if (ret < 0 && ret != AVERROR_EOF) {

@@ -66,13 +66,19 @@ namespace kk {
         AVFormatContext *pFormatCtx = NULL;
         AVCodecContext *pCodecCtx = NULL;
         AVCodec *pCodec = NULL;
-//        AVCodecParserContext *pParserCtx = NULL;
+        AVFrame *pFrameRGBA = NULL;
+        AVFrame *pFrameNv21 = NULL;
         AVFrame *pFrame = NULL;
-        uint8_t *pNv21Data = NULL;
-        uint8_t *pRgbaData = NULL;
+        AVFrame *pRotationFrame = NULL;
+        uint8_t *rBuf = NULL;
+        uint8_t *rgbaBuf = NULL;
+        uint8_t *nv21Buf = NULL;
+        struct SwsContext *pRGBASwsCtx = nullptr;
+        struct SwsContext *pNv21SwsCtx = nullptr;
+
         bool mSoftMode;
 
-        void OnCallBack(JNIEnv *env, jobject obj, uint8_t *nv21Data, int width, int height, int yuvSize);
+        void OnCallBack(JNIEnv *env, jobject obj, AVFrame *frameNv21, int width, int height);
 
         jmethodID mCallBackId = nullptr;
         const char *mFileName = NULL;

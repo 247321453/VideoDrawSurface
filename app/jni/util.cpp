@@ -47,7 +47,6 @@ int av_get_rotation(AVStream *st) {
     }
 }
 
-
 int
 i420_to_nv21(uint8_t *i420Data, int width, int height, uint8_t *nv21Data) {
     int dst_stride_y = width, src_stride_y = width;
@@ -101,7 +100,7 @@ i420_to_rbga(uint8_t *i420Data, int width, int height, uint8_t *argbData) {
     return ret;
 }
 
-long getCurTime(){
+long getCurTime() {
     return (long) (std::clock() / 1000);
 }
 
@@ -124,7 +123,7 @@ convert(AVFrame *frame, int rotation, int width, int height, uint8_t *nv21Data,
     size_t u_size = static_cast<size_t>((width >> 1) * (height >> 1));
     long cur, time = getCurTime();
 
-    libyuv::RotationMode  mode;
+    libyuv::RotationMode mode;
     if (rotation == ROTATION_90) {
         mode = libyuv::kRotate90;
     } else if (rotation == ROTATION_180) {
@@ -162,7 +161,7 @@ convert(AVFrame *frame, int rotation, int width, int height, uint8_t *nv21Data,
         ALOGW("i420 rotate error:%d", ret);
         return ret;
     }
-    if(nv21Data != NULL) {
+    if (nv21Data != NULL) {
         ret = i420_to_nv21(i420Data, width, height, nv21Data);
         if (ret != 0) {
             ALOGW("i420_to_nv21 error:%d", ret);
@@ -199,7 +198,7 @@ void av_frame_rotate_90(AVFrame *src, AVFrame *des) {
     int size = src->width * src->height;
     int hsize = size >> 2;
 
-    int i,j,pos = 0;
+    int i, j, pos = 0;
     //copy y
     for (j = 0; j < src->width; j++) {
         pos = size;
