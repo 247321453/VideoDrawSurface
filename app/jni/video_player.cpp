@@ -151,8 +151,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
             av_image_fill_arrays(pFrameRGBA->data, pFrameRGBA->linesize,
                                  rgbaBuf, AV_PIX_FMT_RGBA,
                                  mPlayWidth, mPlayHeight, 1);
-            pRGBASwsCtx = sws_getContext(videoWidth,
-                                         videoHeight,
+            pRGBASwsCtx = sws_getContext(mPlayWidth,
+                                         mPlayHeight,
                                          pCodecCtx->pix_fmt,
                                          mPlayWidth,
                                          mPlayHeight,
@@ -176,16 +176,16 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
             av_image_fill_arrays(pFrameNv21->data, pFrameNv21->linesize,
                                  nv21Buf, AV_PIX_FMT_NV21,
                                  mPlayWidth, mPlayHeight, 1);
-            struct SwsContext *sws_ctx = sws_getContext(videoWidth,
-                                                        videoHeight,
-                                                        pCodecCtx->pix_fmt,
-                                                        mPlayWidth,
-                                                        mPlayHeight,
-                                                        AV_PIX_FMT_NV21,
-                                                        SWS_FAST_BILINEAR,
-                                                        NULL,
-                                                        NULL,
-                                                        NULL);
+            pNv21SwsCtx = sws_getContext(mPlayWidth,
+                                         mPlayHeight,
+                                         pCodecCtx->pix_fmt,
+                                         mPlayWidth,
+                                         mPlayHeight,
+                                         AV_PIX_FMT_NV21,
+                                         SWS_FAST_BILINEAR,
+                                         NULL,
+                                         NULL,
+                                         NULL);
         }
     }
     int h;
@@ -295,13 +295,45 @@ int VideoPlayer::PreLoad() {
         return -4;
     }
 
+
 //    pCodecCtx = pFormatCtx->streams[mVideoStream]->codec;//deprecated
     pCodecCtx = avcodec_alloc_context3(NULL);
     avcodec_parameters_to_context(pCodecCtx, pFormatCtx->streams[mVideoStream]->codecpar);
     //声明位于libavcodec/avcodec.h
+
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);//用于查找FFmpeg的解码器。
     //函数的参数是一个解码器的ID，返回查找到的解码器（没有找到就返回NULL）
 
+    switch (pCodecCtx->codec_id){
+        case AV_CODEC_ID_H264:
+            ALOGD("code::h264_mediacodec");
+            pCodec = avcodec_find_decoder_by_name("h264_mediacodec");//硬解码264
+            if (pCodec == NULL) {
+                return -1;
+            }
+            break;
+        case AV_CODEC_ID_MPEG4:
+            ALOGD("code::mpeg4_mediacodec");
+            pCodec = avcodec_find_decoder_by_name("mpeg4_mediacodec");//硬解码mpeg4
+            if (pCodec == NULL) {
+                return -1;
+            }
+            break;
+        case AV_CODEC_ID_HEVC:
+            ALOGD("code::hevc_mediacodec");
+            pCodec = avcodec_find_decoder_by_name("hevc_mediacodec");//硬解码265
+            if (pCodec == NULL) {
+                return -1;
+            }
+            break;
+        default:
+            ALOGD("code::default");
+            pCodec = avcodec_find_decoder(pCodecCtx->codec_id);//软解
+            if (pCodec == NULL) {
+                return -1;
+            }
+            break;
+    }
 //    pParserCtx = av_parser_init(pCodec->id);
 //
 //    if (!pCodecCtx) {

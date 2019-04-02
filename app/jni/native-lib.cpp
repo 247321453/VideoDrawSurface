@@ -92,35 +92,38 @@ jint jni_test_play(JNIEnv *env, jclass clazz, jobject surface, jstring filePath)
     AVFrame *pRotationFrame = av_frame_alloc();
 
     uint8_t *rbuffer = (uint8_t *) av_malloc(
-            av_image_get_buffer_size(AV_PIX_FMT_YUV420P, videoWidth, videoHeight, 1) *
+            av_image_get_buffer_size(AV_PIX_FMT_YUV420P, playWidth, playHeight, 1) *
             sizeof(uint8_t));
 
     av_image_fill_arrays(pRotationFrame->data, pRotationFrame->linesize,
                          rbuffer, AV_PIX_FMT_YUV420P,
-                         videoWidth, videoHeight, 1);
+                         playWidth,
+                         playHeight, 1);
     // 用于渲染
     AVFrame *pFrameRGBA = av_frame_alloc();
     // Determine required buffer size and allocate buffer
     uint8_t *buffer = (uint8_t *) av_malloc(av_image_get_buffer_size(AV_PIX_FMT_RGBA,
-                                                                     pCodecCtx->width,
-                                                                     pCodecCtx->height, 1) *
+                                                                     playWidth,
+                                                                     playHeight, 1) *
                                             sizeof(uint8_t));
 
     av_image_fill_arrays(pFrameRGBA->data, pFrameRGBA->linesize,
                          buffer, AV_PIX_FMT_RGBA,
-                         pCodecCtx->width, pCodecCtx->height, 1);
+                         playWidth, playHeight, 1);
 
     // 由于解码出来的帧格式不是RGBA的,在渲染之前需要进行格式转换
-    struct SwsContext *sws_ctx = sws_getContext(pCodecCtx->width,
-                                                pCodecCtx->height,
+    struct SwsContext *sws_ctx = sws_getContext(playWidth,
+                                                playHeight,
                                                 pCodecCtx->pix_fmt,
-                                                pCodecCtx->width,
-                                                pCodecCtx->height,
+                                                playWidth,
+                                                playHeight,
                                                 AV_PIX_FMT_RGBA,
                                                 SWS_BILINEAR,
                                                 NULL,
                                                 NULL,
                                                 NULL);
+    pFrameRGBA->width = playWidth;
+    pFrameRGBA->height = playHeight;
 
     AVFrame *tmpFrame;
     AVPacket packet;
@@ -128,7 +131,6 @@ jint jni_test_play(JNIEnv *env, jclass clazz, jobject surface, jstring filePath)
     ALOGD("av_read_frame start, fmt=%x", pCodecCtx->pix_fmt);
     int frameFinished = 0;
 
-    int srcHeight = 0;
     // 设置缓存区
     ANativeWindow_setBuffersGeometry(nativeWindow, playWidth, playHeight, WINDOW_FORMAT_RGBA_8888);
     while (av_read_frame(pFormatCtx, &packet) >= 0) {
@@ -141,41 +143,40 @@ jint jni_test_play(JNIEnv *env, jclass clazz, jobject surface, jstring filePath)
                 if (rotation == ROTATION_90) {
                     av_frame_rotate_90(pFrame, pRotationFrame);
                     tmpFrame = pRotationFrame;
-                    srcHeight = videoWidth;
-//                } else if (rotation == ROTATION_180) {
-//                    av_frame_rotate_180(pFrame, pRotationFrame);
-//                    tmpFrame = pRotationFrame;
-//                    srcHeight = videoHeight;
-//                } else if (rotation == ROTATION_270) {
-//                    av_frame_rotate_270(pFrame, pRotationFrame);
-//                    tmpFrame = pRotationFrame;
-//                    srcHeight = videoWidth;
+                } else if (rotation == ROTATION_180) {
+                    av_frame_rotate_180(pFrame, pRotationFrame);
+                    tmpFrame = pRotationFrame;
+                } else if (rotation == ROTATION_270) {
+                    av_frame_rotate_270(pFrame, pRotationFrame);
+                    tmpFrame = pRotationFrame;
                 } else {
                     tmpFrame = pFrame;
-                    srcHeight = videoHeight;
                 }
-
-                // lock native window buffer
-                ANativeWindow_lock(nativeWindow, &windowBuffer, NULL);
 
                 // 格式转换
-                sws_scale(sws_ctx, (uint8_t const *const *) tmpFrame->data,
-                          tmpFrame->linesize, 0, srcHeight,
+
+                int ret = sws_scale(sws_ctx, (uint8_t const *const *) tmpFrame->data,
+                          tmpFrame->linesize, 0, tmpFrame->height,
                           pFrameRGBA->data, pFrameRGBA->linesize);
+                ALOGD("sws_scale:srcH=%d, ret=%d", tmpFrame->height, ret);
 
-                // 获取stride
-                uint8_t *dst = (uint8_t *) windowBuffer.bits;
-                int dstStride = windowBuffer.stride * 4;
-                uint8_t *src = (uint8_t *) (pFrameRGBA->data[0]);
-                size_t srcStride = (size_t) pFrameRGBA->linesize[0];
+                // lock native window buffer
+                if(ANativeWindow_lock(nativeWindow, &windowBuffer, NULL) == 0) {
+                    // 获取stride
+                    uint8_t *dst = (uint8_t *) windowBuffer.bits;
+                    int dstStride = windowBuffer.stride * 4;
+                    uint8_t *src = (uint8_t *) (pFrameRGBA->data[0]);
+                    size_t srcStride = (size_t) pFrameRGBA->linesize[0];
 
-                // 由于window的stride和帧的stride不同,因此需要逐行复制
-                int h;
-                for (h = 0; h < videoHeight; h++) {
-                    memcpy(dst + h * dstStride, src + h * srcStride, srcStride);
+                    // 由于window的stride和帧的stride不同,因此需要逐行复制
+                    int h;
+                    for (h = 0; h < videoHeight; h++) {
+                        memcpy(dst + h * dstStride, src + h * srcStride, srcStride);
+                    }
+                    ANativeWindow_unlockAndPost(nativeWindow);
+                } else {
+                    break;
                 }
-
-                ANativeWindow_unlockAndPost(nativeWindow);
             }
 
         }

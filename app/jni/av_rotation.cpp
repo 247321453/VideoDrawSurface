@@ -51,20 +51,20 @@ void av_frame_rotate_90(AVFrame *src, AVFrame *des) {
     int size = src->width * src->height;
     int hsize = size >> 2;
 
-    int pos = 0;
+    int i,j,pos = 0;
     //copy y
-    for (int j = 0; j < src->width; j++) {
+    for (j = 0; j < src->width; j++) {
         pos = size;
-        for (int i = src->height - 1; i >= 0; i--) {
+        for (i = src->height - 1; i >= 0; i--) {
             pos -= src->width;
             des->data[0][n++] = src->data[0][pos + j];
         }
     }
     //copy uv
     n = 0;
-    for (int j = 0; j < hw; j++) {
+    for (j = 0; j < hw; j++) {
         pos = hsize;
-        for (int i = hh - 1; i >= 0; i--) {
+        for (i = hh - 1; i >= 0; i--) {
             pos -= hw;
             des->data[1][n] = src->data[1][pos + j];
             des->data[2][n] = src->data[2][pos + j];
@@ -77,6 +77,13 @@ void av_frame_rotate_90(AVFrame *src, AVFrame *des) {
     des->linesize[2] = src->height >> 1;
     des->height = src->width;
     des->width = src->height;
+    des->format = src->format;
+
+    des->pts = src->pts;
+    des->pkt_pts = src->pkt_pts;
+    des->pkt_dts = src->pkt_dts;
+
+    des->key_frame = src->key_frame;
 }
 
 void av_frame_rotate_180(AVFrame *src, AVFrame *des) {
