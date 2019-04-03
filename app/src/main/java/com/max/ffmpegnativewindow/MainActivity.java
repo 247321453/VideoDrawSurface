@@ -137,7 +137,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
     }
 
     @Override
-    public void onFrameCallBack(byte[] nv21Data, int width, int height) {
+    public void onFrameCallBack(byte[] nv21Data, final int width, final int height) {
         if (System.currentTimeMillis() - time > 500) {
             time = System.currentTimeMillis();
             YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
@@ -148,6 +148,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             runOnUiThread(new Runnable() {
                 @Override
                 public void run() {
+                    Log.d(TAG, "update image " + width + "x" + height);
                     BitmapUtils.dispose(img);
                     img.setImageBitmap(bitmap);
                 }
