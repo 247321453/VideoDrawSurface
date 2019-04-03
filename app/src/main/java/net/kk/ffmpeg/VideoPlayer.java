@@ -32,14 +32,29 @@ public class VideoPlayer implements Closeable {
     private long nativePtr;
     private CallBack mCallBack;
     private String source;
+    private boolean mInit;
 
     public VideoPlayer() {
         nativePtr = native_create();
     }
 
-    public void setCallBack(Surface surface, CallBack dataCallBack, boolean needNv21Data) {
+    /**
+     *
+     * @param surface
+     * @param width
+     * @param height
+     * @param stretch 是否拉伸
+     * @param dataCallBack
+     * @param needNv21Data
+     */
+    public void init(Surface surface, int width, int height, boolean stretch,CallBack dataCallBack, boolean needNv21Data) {
+        mInit = true;
         mCallBack = dataCallBack;
-        native_set_callback(nativePtr, surface, needNv21Data);
+        native_set_callback(nativePtr, surface, width, height, stretch, needNv21Data);
+    }
+
+    public boolean isInit() {
+        return mInit;
     }
 
     public String getSource() {
@@ -119,7 +134,7 @@ public class VideoPlayer implements Closeable {
 
     private static native long native_create();
 
-    private native void native_set_callback(long ptr, Surface surface, boolean callback);
+    private native void native_set_callback(long ptr, Surface surface, int width, int height, boolean stretch,boolean callback);
 
     private native void native_set_datasource(long ptr, String path);
 

@@ -1,7 +1,6 @@
 package com.max.ffmpegnativewindow;
 
 import android.Manifest;
-import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
@@ -10,7 +9,6 @@ import android.graphics.YuvImage;
 import android.os.Bundle;
 import android.text.TextUtils;
 import android.util.Log;
-import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
@@ -58,7 +56,6 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
     @Override
     public void surfaceCreated(SurfaceHolder holder) {
         created = true;
-        player.setCallBack(surfaceHolder.getSurface(), this, false);
     }
 
     @Override
@@ -77,6 +74,10 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             Log.w(TAG, "surface not created, now return. ");
             return;
         }
+        if(!player.isInit()) {
+            //        player.init(surfaceHolder.getSurface(), 0, 0, this, true);
+            player.init(surfaceHolder.getSurface(), 0, 0, false, this, true);
+        }
         final String path = editText.getText().toString();
         view.setEnabled(false);
         editText.setEnabled(false);
@@ -86,7 +87,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
 //                VideoPlayer.testPlay(surfaceHolder.getSurface(), path);
 //            }
 //        }).start();
-        if(!TextUtils.equals(player.getSource(), path)) {
+        if (!TextUtils.equals(player.getSource(), path)) {
             player.setDataSource(path);
         }
         if (player.isPlaying()) {
@@ -113,7 +114,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
                     Log.i(TAG, "video time:" + player.getVideoTime());
                     player.seek(0);
                     err = player.play();
-                    if(err != 0) {
+                    if (err != 0) {
                         Log.e(TAG, "play:" + err);
                     }
                     runOnUiThread(new Runnable() {

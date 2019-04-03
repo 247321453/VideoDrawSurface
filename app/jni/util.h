@@ -20,4 +20,7 @@ int av_get_rotation(AVStream *st);
 long getCurTime();
 int av_yuv420p_to_nv21(AVFrame *frame, int width, int height, uint8_t *nv21Data);
 int av_frame_rotate(AVFrame *src, int rotation, AVFrame *dst);
+int av_frame_rotate_crop(AVFrame *src, int rotation,
+                         int left, int top, int dst_width, int dst_height, AVFrame *dst);
+int av_frame_scale(AVFrame *src, AVFrame *dst, int dst_width, int dst_height);
 #endif //FFMPEGNATIVEWINDOW_AV_ROTATION_H

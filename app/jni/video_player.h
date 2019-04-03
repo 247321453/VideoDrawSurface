@@ -15,18 +15,19 @@ extern "C" {
 #include "libavutil/imgutils.h"
 };
 
-#define AUTO_ROTATION_FRAME 1
-
 namespace kk {
     class VideoPlayer {
     public:
         VideoPlayer();
 
-        void SetSurface(ANativeWindow *surface) {
+        void SetSurface(ANativeWindow *surface, int width, int height, bool stretch) {
             if (pNativeWindow != nullptr) {
                 ANativeWindow_release(pNativeWindow);
                 pNativeWindow = nullptr;
             }
+            mStretchMode = stretch;
+            mPreviewWidth = width;
+            mPreviewHeight = height;
             pNativeWindow = surface;
         }
 
@@ -76,8 +77,32 @@ namespace kk {
         bool mClose;
         int mRotation;
         int mVideoStream = -1;
-        int mPlayWidth;
-        int mPlayHeight;
+        // 用户需要的尺寸
+        int mPreviewWidth;
+        int mPreviewHeight;
+        //拉伸
+        bool mStretchMode;
+        int mRotateWidth;
+        int mRotateHeight;
+        //视频原始尺寸
+        int mVideoWidth;
+        int mVideoHeight;
+
+        int mDisplayWidth;
+        int mDisplayHeight;
+
+        bool mNeedScaleCat;
+
+        //原始尺寸的坐标
+        int mCropLeft;
+        int mCropTop;
+        int mCropWidth;
+        int mCropHeight;
+
+        //
+        int mScaleWidth;
+        int mScaleHeight;
+
         double mVideoCurDuration;
         double mVideoAllDuration;
         bool mNeedNv21Data = false;
@@ -88,8 +113,10 @@ namespace kk {
         AVFrame *pFrameRGBA = nullptr;
         AVFrame *pFrameNv21 = nullptr;
         AVFrame *pFrame = nullptr;
-        AVFrame *pRotationFrame = nullptr;
+        AVFrame *pRotateFrame = nullptr;
+        AVFrame *pScaleFrame = nullptr;
         AVRational pTimeBase;
+        uint8_t *pScaleBuf = nullptr;
         uint8_t *pRotateBuf = nullptr;
         uint8_t *pRgbaBuf = nullptr;
         uint8_t *pNv21Buf = nullptr;
@@ -100,6 +127,10 @@ namespace kk {
 
         jmethodID mCallBackId = nullptr;
         const char *mFileName = nullptr;
+
+        void initSize();
+
+        int initData();
     };
 }
 

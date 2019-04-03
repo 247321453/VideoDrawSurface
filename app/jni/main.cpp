@@ -20,11 +20,12 @@ jlong jni_create_player(JNIEnv *env, jclass) {
 }
 
 void
-jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jobject surface, jboolean callback) {
+jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jobject surface,
+                        jint width, jint height, jboolean stretch, jboolean callback) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         ANativeWindow *nativeWindow = ANativeWindow_fromSurface(env, surface);
-        player->SetSurface(nativeWindow);
+        player->SetSurface(nativeWindow, width, height, stretch);
         jclass clazz = env->GetObjectClass(obj);
         jmethodID javaCallback = env->GetMethodID(clazz, "onFrameCallBack", "([BIIDD)V");
         if (javaCallback != NULL) {
@@ -39,9 +40,11 @@ void jni_set_datasource(JNIEnv *env, jobject obj, jlong ptr, jstring path) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         const char *_filename = env->GetStringUTFChars(path, NULL);
-        int len = sizeof(_filename)/sizeof(_filename[0]);
-        char* filename = new char[len];
+        int len = env->GetStringLength(path);
+        char *filename = new char[len + 1];
         strcpy(filename, _filename);
+        filename[len] = '\0';
+        ALOGD("set datasource %d=%s", len, filename);
         env->ReleaseStringUTFChars(path, _filename);
         player->SetDataSource(filename);
     }
@@ -130,7 +133,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     jclass nativeEngineClass = (jclass) env->NewGlobalRef(env->FindClass(JNI_CLASS_NAME));
     static JNINativeMethod methods[] = {
             {"native_create",         "()J",                         (void *) jni_create_player},
-            {"native_set_callback",   "(JLandroid/view/Surface;Z)V", (void *) jni_player_set_callback},
+            {"native_set_callback",   "(JLandroid/view/Surface;IIZZ)V", (void *) jni_player_set_callback},
             {"native_set_datasource", "(JLjava/lang/String;)V",      (void *) jni_set_datasource},
             {"native_play",           "(J)I",                        (void *) jni_player_play},
             {"native_preload",        "(J)I",                        (void *) jni_player_preload},

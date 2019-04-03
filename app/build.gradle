@@ -12,12 +12,6 @@ android {
         ndk {
             abiFilters "armeabi-v7a"
         }
-
-        externalNativeBuild {
-            ndkBuild {
-               // cppFlags "-DDISABLE_LOG"
-            }
-        }
     }
     buildTypes {
         release {
