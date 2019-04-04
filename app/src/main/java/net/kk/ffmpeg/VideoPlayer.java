@@ -1,5 +1,6 @@
 package net.kk.ffmpeg;
 
+import android.support.annotation.IdRes;
 import android.support.annotation.Keep;
 import android.support.annotation.WorkerThread;
 import android.view.Surface;
@@ -32,29 +33,29 @@ public class VideoPlayer implements Closeable {
     private long nativePtr;
     private CallBack mCallBack;
     private String source;
-    private boolean mInit;
 
     public VideoPlayer() {
         nativePtr = native_create();
     }
 
     /**
-     *
-     * @param surface
      * @param width
      * @param height
      * @param stretch 是否拉伸
-     * @param dataCallBack
-     * @param needNv21Data
+     * @param rotate  0-3
+     * @see Surface#ROTATION_0,Surface#ROTATION_90,Surface#ROTATION_180,Surface#ROTATION_270
      */
-    public void init(Surface surface, int width, int height, boolean stretch,CallBack dataCallBack, boolean needNv21Data) {
-        mInit = true;
-        mCallBack = dataCallBack;
-        native_set_callback(nativePtr, surface, width, height, stretch, needNv21Data);
+    public void setSize(int width, int height, boolean stretch, int rotate) {
+        native_set_size(nativePtr, width, height, stretch, rotate);
     }
 
-    public boolean isInit() {
-        return mInit;
+    public void setCallback(CallBack dataCallBack, boolean needNv21Data) {
+        mCallBack = dataCallBack;
+        native_set_callback(nativePtr, needNv21Data);
+    }
+
+    public void setSurface(Surface surface) {
+        native_set_surface(nativePtr, surface);
     }
 
     public String getSource() {
@@ -63,7 +64,7 @@ public class VideoPlayer implements Closeable {
 
     public void setDataSource(String path) {
         source = path;
-        native_set_datasource(nativePtr, path);
+        native_set_data_source(nativePtr, path);
     }
 
     @WorkerThread
@@ -76,6 +77,18 @@ public class VideoPlayer implements Closeable {
     public int preload() {
         init();
         return native_preload(nativePtr);
+    }
+
+    public int getVideoWidth() {
+        return native_get_width(nativePtr);
+    }
+
+    public int getVideoHeight() {
+        return native_get_height(nativePtr);
+    }
+
+    public int getVideoRotate() {
+        return native_get_rotate(nativePtr);
     }
 
     public void release() {
@@ -107,7 +120,7 @@ public class VideoPlayer implements Closeable {
     public void onFrameCallBack(byte[] nv21Data, int width, int height, double progress, double alltime) {
         if (mCallBack != null) {
             mCallBack.onVideoProgress(progress, alltime);
-            if(nv21Data != null) {
+            if (nv21Data != null) {
                 mCallBack.onFrameCallBack(nv21Data, width, height);
             }
         }
@@ -134,9 +147,13 @@ public class VideoPlayer implements Closeable {
 
     private static native long native_create();
 
-    private native void native_set_callback(long ptr, Surface surface, int width, int height, boolean stretch,boolean callback);
+    private native void native_set_surface(long ptr, Surface surface);
 
-    private native void native_set_datasource(long ptr, String path);
+    private native void native_set_callback(long ptr, boolean callback);
+
+    private native void native_set_size(long ptr, int width, int height, boolean stretch, int rotation);
+
+    private native void native_set_data_source(long ptr, String path);
 
     private native int native_play(long ptr);
 
@@ -155,6 +172,12 @@ public class VideoPlayer implements Closeable {
     private native double native_get_all_time(long ptr);
 
     private native int native_seek(long ptr, double ms);
+
+    private native int native_get_width(long ptr);
+
+    private native int native_get_height(long ptr);
+
+    private native int native_get_rotate(long ptr);
 
 //    private static native int native_test_play(Surface surface, String path);
 }

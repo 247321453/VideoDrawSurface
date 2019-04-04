@@ -20,19 +20,29 @@ namespace kk {
     public:
         VideoPlayer();
 
-        void SetSurface(ANativeWindow *surface, int width, int height, bool stretch) {
+        void SetSize(int width, int height, bool stretch, int preRotation) {
+            mStretchMode = stretch;
+            mPreviewWidth = width;
+            mPreviewHeight = height;
+            mPreRotation = preRotation;
+        }
+
+        void SetSurface(ANativeWindow *surface) {
             if (pNativeWindow != nullptr) {
                 ANativeWindow_release(pNativeWindow);
                 pNativeWindow = nullptr;
             }
-            mStretchMode = stretch;
-            mPreviewWidth = width;
-            mPreviewHeight = height;
             pNativeWindow = surface;
         }
 
         void SetDataSource(const char *path) {
-            Release();
+            Release(false);
+            mVideoStream = -1;
+            mVideoHeight = 0;
+            mVideoWidth = 0;
+            mRotation = 0;
+            mVideoCurDuration = 0;
+            mVideoAllDuration = 0;
             mPreLoad = false;
             mFileName = path;
         }
@@ -50,7 +60,7 @@ namespace kk {
 
         void Close();
 
-        void Release();
+        void Release(bool resize);
 
         int Seek(double time);
 
@@ -60,6 +70,18 @@ namespace kk {
 
         double GetVideoDuration() {
             return mVideoAllDuration;
+        }
+
+        int GetVideoWidth() {
+            return mVideoWidth;
+        }
+
+        int GetVideoHeight() {
+            return mVideoHeight;
+        }
+
+        int GetVideoRotation() {
+            return mVideoRotation;
         }
 
         bool IsPlaying() {
@@ -75,23 +97,24 @@ namespace kk {
         //循环播放
         bool mPlaying;
         bool mClose;
-        int mRotation;
+
         int mVideoStream = -1;
         // 用户需要的尺寸
-        int mPreviewWidth;
-        int mPreviewHeight;
+        int mPreviewWidth = 0;
+        int mPreviewHeight = 0;
         //拉伸
-        bool mStretchMode;
-        int mRotateWidth;
-        int mRotateHeight;
+        bool mStretchMode = 0;
+        int mRotateWidth = 0;
+        int mRotateHeight = 0;
         //视频原始尺寸
-        int mVideoWidth;
-        int mVideoHeight;
-
-        int mDisplayWidth;
-        int mDisplayHeight;
-
-        bool mNeedScaleCat;
+        int mVideoWidth = 0;
+        int mVideoHeight = 0;
+        int mVideoRotation = 0;
+        int mRotation = 0;
+        int mDisplayWidth = 0;
+        int mDisplayHeight = 0;
+        int mPreRotation = 0;
+        bool mNeedScaleCrop = false;
 
         //原始尺寸的坐标
         int mCropLeft;

@@ -2,6 +2,7 @@
 // Created by user on 2019/4/2.
 //
 #include "main.h"
+
 /*
 boolean	Z
 long	J
@@ -20,12 +21,47 @@ jlong jni_create_player(JNIEnv *env, jclass) {
 }
 
 void
-jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jobject surface,
-                        jint width, jint height, jboolean stretch, jboolean callback) {
+jni_player_set_size(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height,
+                    jboolean stretch, jint rotation) {
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        player->Release(true);
+        player->SetSize(width, height, stretch, rotation);
+    }
+}
+jint jni_player_get_width(JNIEnv *env, jobject obj, jlong ptr){
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->GetVideoWidth();
+    }
+    return -1;
+}
+jint jni_player_get_height(JNIEnv *env, jobject obj, jlong ptr){
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->GetVideoHeight();
+    }
+    return -1;
+}
+jint jni_player_get_rotate(JNIEnv *env, jobject obj, jlong ptr){
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->GetVideoRotation();
+    }
+    return -1;
+}
+void
+jni_player_set_surface(JNIEnv *env, jobject obj, jlong ptr, jobject surface) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         ANativeWindow *nativeWindow = ANativeWindow_fromSurface(env, surface);
-        player->SetSurface(nativeWindow, width, height, stretch);
+        player->SetSurface(nativeWindow);
+    }
+}
+void
+jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jboolean callback) {
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         jclass clazz = env->GetObjectClass(obj);
         jmethodID javaCallback = env->GetMethodID(clazz, "onFrameCallBack", "([BIIDD)V");
         if (javaCallback != NULL) {
@@ -95,9 +131,10 @@ void jni_player_close(JNIEnv *env, jobject obj, jlong ptr) {
 void jni_player_release(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        player->Release();
+        player->Release(false);
     }
 }
+
 jint jni_player_seek(JNIEnv *env, jobject obj, jlong ptr, jdouble time) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
@@ -133,8 +170,13 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     jclass nativeEngineClass = (jclass) env->NewGlobalRef(env->FindClass(JNI_CLASS_NAME));
     static JNINativeMethod methods[] = {
             {"native_create",         "()J",                         (void *) jni_create_player},
-            {"native_set_callback",   "(JLandroid/view/Surface;IIZZ)V", (void *) jni_player_set_callback},
-            {"native_set_datasource", "(JLjava/lang/String;)V",      (void *) jni_set_datasource},
+            {"native_set_surface",    "(JLandroid/view/Surface;)V",  (void *) jni_player_set_surface},
+            {"native_set_callback",   "(JZ)V",                       (void *) jni_player_set_callback},
+            {"native_set_size",       "(JIIZI)V",                      (void *) jni_player_set_size},
+            {"native_get_width",       "(J)I",                      (void *) jni_player_get_width},
+            {"native_get_height",       "(J)I",                      (void *) jni_player_get_height},
+            {"native_get_rotate",       "(J)I",                      (void *) jni_player_get_rotate},
+            {"native_set_data_source", "(JLjava/lang/String;)V",      (void *) jni_set_datasource},
             {"native_play",           "(J)I",                        (void *) jni_player_play},
             {"native_preload",        "(J)I",                        (void *) jni_player_preload},
             {"native_stop",           "(J)V",                        (void *) jni_player_stop},
@@ -145,9 +187,9 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_get_all_time",   "(J)D",                        (void *) jni_player_get_video_time},
             {"native_get_status",     "(J)I",                        (void *) jni_player_get_status},
             {"native_init_ffmpeg",    "()V",                         (void *) jni_ffmpeg_init},
-          //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
+            //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
-    if (env->RegisterNatives(nativeEngineClass, methods, 13) < 0) {
+    if (env->RegisterNatives(nativeEngineClass, methods, 18) < 0) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;

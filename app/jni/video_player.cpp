@@ -66,7 +66,8 @@ int VideoPlayer::PreLoad() {
         ALOGD("video:all time=%f", mVideoAllDuration);
     }
     //角度，宽高
-    mRotation = av_get_rotation(steam);
+    mVideoRotation = av_get_rotation(steam);
+    mRotation = mVideoRotation;
     pCodecCtx = avcodec_alloc_context3(NULL);
     avcodec_parameters_to_context(pCodecCtx, steam->codecpar);
     mVideoWidth = pCodecCtx->width;
@@ -81,11 +82,6 @@ int VideoPlayer::PreLoad() {
     if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
         return -6;
     }
-    initSize();
-    int ret = initData();
-    if (ret != 0) {
-        return ret;
-    }
     mPreLoad = true;
     ALOGD("PreLoad::ok");
     return 0;
@@ -99,10 +95,10 @@ void VideoPlayer::Close() {
         ANativeWindow_release(pNativeWindow);
         pNativeWindow = nullptr;
     }
-    Release();
+    Release(false);
 }
 
-void VideoPlayer::Release() {
+void VideoPlayer::Release(bool resize) {
     if (pScaleBuf != nullptr) {
         av_free(pScaleBuf);
         pScaleBuf = nullptr;
@@ -139,13 +135,15 @@ void VideoPlayer::Release() {
         av_free(pFrame);
         pFrame = nullptr;
     }
-    if (pCodecCtx != nullptr) {
-        avcodec_close(pCodecCtx);
-        pCodecCtx = nullptr;
-    }
-    if (pFormatCtx != nullptr) {
-        avformat_free_context(pFormatCtx);
-        pFormatCtx = nullptr;
+    if (!resize) {
+        if (pCodecCtx != nullptr) {
+            avcodec_close(pCodecCtx);
+            pCodecCtx = nullptr;
+        }
+        if (pFormatCtx != nullptr) {
+            avformat_free_context(pFormatCtx);
+            pFormatCtx = nullptr;
+        }
     }
 }
 
@@ -160,9 +158,20 @@ int VideoPlayer::Seek(double ms) {
 
 void VideoPlayer::initSize() {
     ALOGD("video:rotation=%d, width=%d,height=%d", mRotation, mVideoWidth, mVideoHeight);
-    if (mSoftMode && (mRotation == ROTATION_90 || mRotation == ROTATION_270)) {
+    mRotation = mVideoRotation;
+    if (!mSoftMode) {
+        mRotation = ROTATION_0;
+        ALOGD("use hardware mode reset rotate=0");
+    }
+    //按照比例自动旋转
+    if (mPreRotation > 0) {
+        mRotation = (mRotation + mPreRotation) % 4; // 0-3
+        ALOGD("has pre rotate: pre=%d, now=%d", mPreRotation, mRotation);
+    }
+    if (mRotation == ROTATION_90 || mRotation == ROTATION_270) {
         mRotateWidth = mVideoHeight;
         mRotateHeight = mVideoWidth;
+        ALOGD("swip size %dx%d->%dx%d", mVideoWidth, mVideoHeight, mRotateWidth, mRotateHeight);
     } else {
         //硬解，自动旋转角度
         mRotateWidth = mVideoWidth;
@@ -173,51 +182,59 @@ void VideoPlayer::initSize() {
     if (mPreviewWidth > 0 && mPreviewHeight > 0) {
         //TODO 计算缩放，裁剪
         if (mPreviewWidth == mDisplayWidth && mPreviewHeight == mDisplayHeight) {
-            mNeedScaleCat = false;
-        }
-        //默认
-        mNeedScaleCat = true;
-        mCropTop = 0;
-        mCropLeft = 0;
-        mCropWidth = mDisplayWidth;
-        mCropHeight = mDisplayHeight;
-        mScaleWidth = mPreviewWidth;
-        mScaleHeight = mPreviewHeight;
-        if (!mStretchMode) {
-            if ((((float) mPreviewWidth / (float) mPreviewHeight) ==
-                 ((float) mDisplayWidth / (float) mDisplayHeight))) {
-                //一样的比例
-            }
-            //目标的宽和原始比例的宽一样
-            int w1 = mDisplayWidth;//540/360*640=960
-            int h1 = (int) round((float) w1 / (float) mPreviewWidth * (float) mPreviewHeight);
-            //目标的高和原始比例的高一样
-            int h2 = mDisplayHeight;//960/640*360=540
-            int w2 = (int) round(h2 / (float) mPreviewHeight * (float) mPreviewWidth);
+            mNeedScaleCrop = false;
+            ALOGD("size is same, don't scale and crop");
+        } else {
+            //默认
+            mNeedScaleCrop = true;
+            mCropTop = 0;
+            mCropLeft = 0;
+            mCropWidth = mDisplayWidth;
+            mCropHeight = mDisplayHeight;
+            mScaleWidth = mPreviewWidth;
+            mScaleHeight = mPreviewHeight;
+            if (!mStretchMode) {
+                if ((((float) mPreviewWidth / (float) mPreviewHeight) ==
+                     ((float) mDisplayWidth / (float) mDisplayHeight))) {
+                    //一样的比例
+                    ALOGD("don't crop");
+                }else {
+                    //目标的宽和原始比例的宽一样
+                    int w1 = mDisplayWidth;//540/360*640=960
+                    int h1 = (int) round(
+                            (float) w1 / (float) mPreviewWidth * (float) mPreviewHeight);
+                    //目标的高和原始比例的高一样
+                    int h2 = mDisplayHeight;//960/640*360=540
+                    int w2 = (int) round(h2 / (float) mPreviewHeight * (float) mPreviewWidth);
 
-            if (h1 < mDisplayHeight) {
-                //裁剪的高度小于原始高度，进行裁剪
-                mCropLeft = 0;
-                mCropTop = (mDisplayHeight - h1) / 4 * 2;//不能单数 26/2=13  26/4*2=12
-                mCropWidth = w1;
-                mCropHeight = h1;
-            } else if (w2 < mDisplayWidth) {
-                //裁剪的宽度小于原始宽度，进行裁剪
-                //宽度比目标宽
-                mCropLeft = (mDisplayHeight - w2) / 4 * 2;
-                mCropTop = 0;
-                mCropWidth = w2;
-                mCropHeight = h2;
+                    if (h1 < mDisplayHeight) {
+                        //裁剪的高度小于原始高度，进行裁剪
+                        mCropLeft = 0;
+                        mCropTop = (mDisplayHeight - h1) / 4 * 2;//不能单数 26/2=13  26/4*2=12
+                        mCropWidth = w1;
+                        mCropHeight = h1;
+                        ALOGD("need crop %d,%d,%d,%d", mCropLeft, mCropTop, mCropWidth, mCropHeight);
+                    } else if (w2 < mDisplayWidth) {
+                        //裁剪的宽度小于原始宽度，进行裁剪
+                        //宽度比目标宽
+                        mCropLeft = (mDisplayHeight - w2) / 4 * 2;
+                        mCropTop = 0;
+                        mCropWidth = w2;
+                        mCropHeight = h2;
+                        ALOGD("need crop %d,%d,%d,%d", mCropLeft, mCropTop, mCropWidth, mCropHeight);
+                    }
+                }
             }
         }
     } else {
-        mNeedScaleCat = false;
+        mNeedScaleCrop = false;
     }
-    if (mNeedScaleCat) {
+    if (mNeedScaleCrop) {
         mRotateWidth = mCropWidth;
         mRotateHeight = mCropHeight;
         mDisplayWidth = mScaleWidth;
         mDisplayHeight = mScaleHeight;
+        ALOGD("set size rotate=%dx%d,display=%dx%d", mRotateWidth, mRotateHeight, mDisplayWidth, mDisplayHeight);
     }
 }
 
@@ -231,14 +248,14 @@ int VideoPlayer::initData() {
         return -7;
     }
 
-    if (mRotation != ROTATION_0 || mNeedScaleCat) {
+    if (mRotation != ROTATION_0 || mNeedScaleCrop) {
         if (pRotateFrame == nullptr) {
             pRotateFrame = av_frame_alloc();
             pRotateBuf = initFrame(pRotateFrame, video_fmt, mRotateWidth, mRotateHeight);
             ALOGD("init rotate frame %dx%d", mRotateWidth, mRotateHeight);
         }
     }
-    if (mNeedScaleCat) {
+    if (mNeedScaleCrop) {
         if (pScaleFrame == nullptr) {
             pScaleFrame = av_frame_alloc();
             pScaleBuf = initFrame(pScaleFrame, video_fmt, mScaleWidth, mScaleHeight);
@@ -282,6 +299,11 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (ret != 0) {
         return ret;
     }
+    initSize();
+    ret = initData();
+    if (ret != 0) {
+        return ret;
+    }
     mPlaying = true;
     AVPacket packet;
     ANativeWindow_Buffer windowBuffer;
@@ -300,7 +322,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
         yuvArray = env->NewByteArray(yuvLen);
     }
     bool error = false;
-//    long time, cur;
+    long time, cur;
+    ALOGD("start av_read_frame");
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
         //use the parser to split the data into frames
         if (packet.stream_index == mVideoStream) {
@@ -312,40 +335,40 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
             }
 
             while (mPlaying && avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
-//                time = getCurTime();
+                time = getCurTime();
                 mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
-                if (mRotation == ROTATION_0 && !mNeedScaleCat) {
+                if (mRotation == ROTATION_0 && !mNeedScaleCrop) {
                     //角度是0，并且不需要裁剪
                     tmpFrame = pFrame;
                 } else {
                     //旋转并且裁剪
-                  if (mRotation == ROTATION_90 || mRotation == ROTATION_270) {
-                      if (!mNeedScaleCat) {
-                          ret = av_frame_rotate_crop(pFrame, mRotation,
-                                                     0, 0, mRotateHeight, mRotateWidth,
-                                                     pRotateFrame);
-                      } else {
-                          ret = av_frame_rotate_crop(pFrame, mRotation,
-                                                     mCropTop, mCropLeft, mCropHeight, mCropWidth,
-                                                     pRotateFrame);
-                      }
-                  } else {
-                      if (!mNeedScaleCat) {
-                          ret = av_frame_rotate_crop(pFrame, mRotation, 0, 0, mRotateWidth,
-                                                     mRotateHeight, pRotateFrame);
-                      } else {
-                          ret = av_frame_rotate_crop(pFrame, mRotation,
-                                                     mCropLeft, mCropTop, mCropWidth, mCropHeight,
-                                                     pRotateFrame);
-                      }
-                  }
+                    if (mRotation == ROTATION_90 || mRotation == ROTATION_270) {
+                        if (!mNeedScaleCrop) {
+                            ret = av_frame_rotate_crop(pFrame, mRotation,
+                                                       0, 0, mRotateHeight, mRotateWidth,
+                                                       pRotateFrame);
+                        } else {
+                            ret = av_frame_rotate_crop(pFrame, mRotation,
+                                                       mCropTop, mCropLeft, mCropHeight, mCropWidth,
+                                                       pRotateFrame);
+                        }
+                    } else {
+                        if (!mNeedScaleCrop) {
+                            ret = av_frame_rotate_crop(pFrame, mRotation, 0, 0, mRotateWidth,
+                                                       mRotateHeight, pRotateFrame);
+                        } else {
+                            ret = av_frame_rotate_crop(pFrame, mRotation,
+                                                       mCropLeft, mCropTop, mCropWidth, mCropHeight,
+                                                       pRotateFrame);
+                        }
+                    }
                     if (ret != 0) {
                         error = true;
                         break;
                     }
                     tmpFrame = pRotateFrame;
                 }
-                if (mNeedScaleCat) {
+                if (mNeedScaleCrop) {
                     //缩放
                     ret = av_frame_scale(tmpFrame, pScaleFrame, mScaleWidth, mScaleHeight);
                     if (ret != 0) {
@@ -354,8 +377,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                     }
                     tmpFrame = pScaleFrame;
                 }
-//                cur = getCurTime();
-//                ALOGD("yuv rotate,crop, scale use time %ld", (cur - time));
+                cur = getCurTime();
+                ALOGD("yuv rotate,crop, scale use time %ld", (cur - time));
                 //surface绘制
                 if (pNativeWindow != nullptr) {
                     sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,

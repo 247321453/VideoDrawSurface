@@ -1,41 +1,83 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     tools:context="com.max.ffmpegnativewindow.MainActivity">
 
-    <SurfaceView
-        android:id="@+id/videoSurface"
+    <net.kk.ffmpeg.widget.FixedFrameLayout
+        android:id="@+id/ly_fixed"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_gravity="center"
+        app:fixed_x="9"
+        app:fixed_y="16">
+
+        <SurfaceView
+            android:id="@+id/videoSurface"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent" />
+    </net.kk.ffmpeg.widget.FixedFrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:orientation="horizontal">
+        android:orientation="vertical">
 
-        <EditText
-            android:id="@+id/file_path"
-            android:layout_width="0dp"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:layout_weight="1"
-            android:textColor="@color/colorAccent"
-            android:text="/sdcard/1.mp4" />
-        <Button
-            android:layout_width="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="5dp"
+                android:textColor="@color/colorAccent"
+                android:text="Test Type:" />
+
+            <android.support.v7.widget.AppCompatSpinner
+                android:id="@+id/sp_test_list"
+                style="@style/AppTheme.PopupOverlay"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_gravity="center"
-            android:onClick="onClicked"
-            android:text="play" />
+            android:orientation="horizontal">
+
+            <EditText
+                android:id="@+id/file_path"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:layout_weight="1"
+                android:text="/sdcard/1.mp4"
+                android:textColor="@color/colorAccent" />
+
+            <Button
+                android:id="@+id/btn_play"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:onClick="onClicked"
+                android:text="play" />
+        </LinearLayout>
     </LinearLayout>
 
     <ImageView
         android:id="@+id/img"
         android:layout_width="90dp"
         android:layout_height="160dp"
-        android:layout_gravity="right" />
+        android:layout_gravity="right"
+        android:layout_marginTop="2dp"
+        android:layout_marginRight="2dp"
+        android:background="@color/colorPrimaryDark" />
 </FrameLayout>
