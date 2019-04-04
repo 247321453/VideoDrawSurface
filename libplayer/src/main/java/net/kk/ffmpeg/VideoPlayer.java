@@ -2,7 +2,6 @@ package net.kk.ffmpeg;
 
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.support.annotation.IdRes;
 import android.support.annotation.Keep;
 import android.support.annotation.WorkerThread;
 import android.view.Surface;
@@ -100,7 +99,7 @@ public class VideoPlayer implements Closeable {
         });
     }
 
-    public void preload(boolean autoPlay) {
+    public void preload(final boolean autoPlay) {
         init();
         post(new Runnable() {
             @Override

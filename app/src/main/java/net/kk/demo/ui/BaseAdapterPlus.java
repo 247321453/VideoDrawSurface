@@ -1,4 +1,4 @@
-package com.max.ffmpegnativewindow.ui;
+package net.kk.demo.ui;
 
 import android.content.Context;
 import android.view.LayoutInflater;

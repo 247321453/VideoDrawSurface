@@ -6,9 +6,9 @@
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="@color/colorPrimary"
-    tools:context="com.max.ffmpegnativewindow.MainActivity">
+    tools:context="net.kk.demo.MainActivity">
 
-    <net.kk.ffmpeg.widget.FixedFrameLayout
+    <net.kk.demo.ui.widget.FixedFrameLayout
         android:id="@+id/ly_fixed"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
@@ -21,7 +21,7 @@
             android:layout_width="match_parent"
             android:layout_gravity="center"
             android:layout_height="match_parent" />
-    </net.kk.ffmpeg.widget.FixedFrameLayout>
+    </net.kk.demo.ui.widget.FixedFrameLayout>
 
     <LinearLayout
         android:layout_width="match_parent"

@@ -1,4 +1,4 @@
-package com.max.ffmpegnativewindow;
+package net.kk.demo;
 
 import android.Manifest;
 import android.content.Context;
@@ -23,10 +23,12 @@ import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import com.max.ffmpegnativewindow.ui.BaseAdapterPlus;
+import com.max.ffmpegnativewindow.R;
 
+import net.kk.demo.ui.BaseAdapterPlus;
+import net.kk.demo.ui.widget.FixedFrameLayout;
+import net.kk.demo.utils.BitmapUtils;
 import net.kk.ffmpeg.VideoPlayer;
-import net.kk.ffmpeg.widget.FixedFrameLayout;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;

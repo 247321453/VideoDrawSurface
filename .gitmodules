@@ -1,3 +1,3 @@
-[submodule "app/jni/libyuv"]
-	path = app/jni/libyuv
+[submodule "libplayer/jni/libyuv"]
+	path = libplayer/jni/libyuv
 	url = https://github.com/247321453/libyuv.git

@@ -1,4 +1,4 @@
-package com.max.ffmpegnativewindow;
+package net.kk.demo;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;

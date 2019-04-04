@@ -1,4 +1,4 @@
-package net.kk.ffmpeg.widget;
+package net.kk.demo.ui.widget;
 
 import android.content.Context;
 import android.content.res.TypedArray;
