@@ -72,7 +72,7 @@ jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jboolean callback) 
     }
 }
 
-void jni_set_datasource(JNIEnv *env, jobject obj, jlong ptr, jstring path) {
+void jni_set_data_source(JNIEnv *env, jobject obj, jlong ptr, jstring path) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         const char *_filename = env->GetStringUTFChars(path, NULL);
@@ -176,7 +176,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_get_width",       "(J)I",                      (void *) jni_player_get_width},
             {"native_get_height",       "(J)I",                      (void *) jni_player_get_height},
             {"native_get_rotate",       "(J)I",                      (void *) jni_player_get_rotate},
-            {"native_set_data_source", "(JLjava/lang/String;)V",      (void *) jni_set_datasource},
+            {"native_set_data_source", "(JLjava/lang/String;)V",      (void *) jni_set_data_source},
             {"native_play",           "(J)I",                        (void *) jni_player_play},
             {"native_preload",        "(J)I",                        (void *) jni_player_preload},
             {"native_stop",           "(J)V",                        (void *) jni_player_stop},

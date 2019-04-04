@@ -89,7 +89,8 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
     private List<TestInfo> initItems() {
         List<TestInfo> items = new ArrayList<>();
         items.add(new TestInfo("正常", 0, 0, false, Surface.ROTATION_0));
-        items.add(new TestInfo("旋转90度", 0, 0, false, Surface.ROTATION_90));
+        items.add(new TestInfo("顺时针旋转90度", 0, 0, false, Surface.ROTATION_90));
+        items.add(new TestInfo("逆时针旋转90度", 0, 0, false, Surface.ROTATION_270));
         items.add(new TestInfo("4：3画面拉伸", 900, 1200, true, Surface.ROTATION_0));
         items.add(new TestInfo("按4：3比例缩放", 900, 1200, false, Surface.ROTATION_0));
         items.add(new TestInfo("宽高对换测试2", 1280, 720, false, Surface.ROTATION_0));
@@ -169,8 +170,19 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         }
         if (mTestInfo != null) {
             player.setSize(mTestInfo.width, mTestInfo.height, mTestInfo.stretch, mTestInfo.rotaion);
+            int w, h;
+            if (mTestInfo.width == 0) {
+                w = player.getVideoRotate() == 0 ? player.getVideoWidth() : player.getVideoHeight();
+            } else {
+                w = mTestInfo.width;
+            }
+            if (mTestInfo.height == 0) {
+                h = player.getVideoRotate() == 0 ? player.getVideoHeight() : player.getVideoWidth();
+            } else {
+                h = mTestInfo.height;
+            }
             runOnUiThread(() -> {
-                mFixedFrameLayout.setTargetSize(mTestInfo.width, mTestInfo.height);
+                mFixedFrameLayout.setTargetSize(w, h);
             });
         }
         Log.i(TAG, "video time:" + player.getVideoTime());
@@ -230,9 +242,9 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
 
         @Override
         public String toString() {
-            return name + " " + width + "x" + height
-                    + "/" + (stretch ? "stretch" : "fixed")
-                    + "@" + (rotaion * 90) + "°";
+            return name + " " + ((width > 0 && height > 0) ? (width + "x" + height) + "/" : "")
+                    + (stretch ? "stretch" : "fixed")
+                    + " " + (rotaion * 90) + "°";
         }
     }
 

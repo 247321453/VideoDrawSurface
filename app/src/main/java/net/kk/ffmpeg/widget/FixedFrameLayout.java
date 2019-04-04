@@ -36,12 +36,16 @@ public class FixedFrameLayout extends FrameLayout {
     }
 
     public void setTargetSize(int targetWidth, int targetHeight) {
-        mTargetWidth = targetWidth;
-        mTargetHeight = targetHeight;
-        if (getParent() != null) {
-            if (getParent() instanceof ViewGroup) {
-                ViewGroup group = (ViewGroup) getParent();
-                measure(MeasureSpec.makeMeasureSpec(group.getMeasuredWidth(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(group.getMeasuredHeight(), MeasureSpec.EXACTLY));
+        if(targetWidth >0 && targetHeight > 0) {
+            mTargetWidth = targetWidth;
+            mTargetHeight = targetHeight;
+            Log.d(TAG, "setTargetSize:" + targetHeight + "x" + targetHeight);
+            if (getParent() != null) {
+                if (getParent() instanceof ViewGroup) {
+                    ViewGroup group = (ViewGroup) getParent();
+                    Log.d(TAG, "parent.measure");
+                    measure(MeasureSpec.makeMeasureSpec(group.getMeasuredWidth(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(group.getMeasuredHeight(), MeasureSpec.EXACTLY));
+                }
             }
         }
     }

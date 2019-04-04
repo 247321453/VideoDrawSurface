@@ -131,6 +131,14 @@ void VideoPlayer::Release(bool resize) {
         av_free(pFrameNv21);
         pFrameNv21 = nullptr;
     }
+    if(pRGBASwsCtx != nullptr){
+        av_free(pRGBASwsCtx);
+        pRGBASwsCtx = nullptr;
+    }
+    if(pNv21SwsCtx != nullptr){
+        av_free(pNv21SwsCtx);
+        pNv21SwsCtx = nullptr;
+    }
     if (pFrame != nullptr) {
         av_free(pFrame);
         pFrame = nullptr;
