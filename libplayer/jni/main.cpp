@@ -1,7 +1,13 @@
 //
 // Created by user on 2019/4/2.
 //
-#include "main.h"
+#include <jni.h>
+#include <android/native_window.h>
+#include <android/native_window_jni.h>
+#include "debug.h"
+#include "video_player.h"
+
+#define JNI_CLASS_NAME "net/kk/ffmpeg/VideoPlayer"
 
 /*
 boolean	Z

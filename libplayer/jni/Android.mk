@@ -71,7 +71,6 @@ include $(CLEAR_VARS)
 
 LOCAL_MODULE := kkplayer
 
-
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
 LOCAL_C_INCLUDES += $(LOCAL_PATH)/libyuv/include
 
@@ -83,8 +82,7 @@ LOCAL_CFLAGS := -D__STDC_CONSTANT_MACROS
 
 LOCAL_LDLIBS := -llog -landroid
 
-LOCAL_SHARED_LIBRARIES := libyuv
-
-LOCAL_STATIC_LIBRARIES := libijkffmpeg
+LOCAL_SHARED_LIBRARIES := libijkffmpeg \
+    libyuv
 
 include $(BUILD_SHARED_LIBRARY)
