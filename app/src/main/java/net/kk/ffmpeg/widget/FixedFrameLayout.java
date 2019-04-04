@@ -4,7 +4,6 @@ import android.content.Context;
 import android.content.res.TypedArray;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.ViewGroup;
 import android.widget.FrameLayout;
 
 import com.max.ffmpegnativewindow.R;
@@ -40,13 +39,9 @@ public class FixedFrameLayout extends FrameLayout {
             mTargetWidth = targetWidth;
             mTargetHeight = targetHeight;
             Log.d(TAG, "setTargetSize:" + targetHeight + "x" + targetHeight);
-            if (getParent() != null) {
-                if (getParent() instanceof ViewGroup) {
-                    ViewGroup group = (ViewGroup) getParent();
-                    Log.d(TAG, "parent.measure");
-                    measure(MeasureSpec.makeMeasureSpec(group.getMeasuredWidth(), MeasureSpec.EXACTLY), MeasureSpec.makeMeasureSpec(group.getMeasuredHeight(), MeasureSpec.EXACTLY));
-                }
-            }
+            int wsp = MeasureSpec.makeMeasureSpec(targetWidth, MeasureSpec.EXACTLY);
+            int hsp = MeasureSpec.makeMeasureSpec(targetHeight, MeasureSpec.EXACTLY);
+            measure(wsp, hsp);
         }
     }
 

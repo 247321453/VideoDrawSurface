@@ -1,5 +1,7 @@
 package net.kk.ffmpeg;
 
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.support.annotation.IdRes;
 import android.support.annotation.Keep;
 import android.support.annotation.WorkerThread;
@@ -23,6 +25,12 @@ public class VideoPlayer implements Closeable {
     public interface CallBack {
         void onVideoProgress(double cur, double all);
 
+        void onPlayStart();
+
+        void onPlayEnd(int error);
+
+        void onVideoPreLoad(int error, int width, int heigh, int rotate, double allTime);
+
         void onFrameCallBack(byte[] nv21Data, int width, int height);
     }
 
@@ -30,8 +38,12 @@ public class VideoPlayer implements Closeable {
         System.loadLibrary("kkplayer");
     }
 
+    private HandlerThread mWorkThread;
+    private Handler mHandler;
     private long nativePtr;
     private CallBack mCallBack;
+    private double mCurTime;
+    private double mAllTime;
     private String source;
 
     public VideoPlayer() {
@@ -67,16 +79,47 @@ public class VideoPlayer implements Closeable {
         native_set_data_source(nativePtr, path);
     }
 
-    @WorkerThread
-    public int play() {
+    public void play() {
         init();
-        return native_play(nativePtr);
+        post(new Runnable() {
+            @Override
+            public void run() {
+                if (mCallBack != null) {
+                    mCallBack.onPlayStart();
+                }
+                int ret = -20;
+                try {
+                    ret = native_play(nativePtr);
+                }catch (Throwable e){
+                    e.printStackTrace();
+                }
+                if (mCallBack != null) {
+                    mCallBack.onPlayEnd(ret);
+                }
+            }
+        });
     }
 
-    @WorkerThread
-    public int preload() {
+    public void preload(boolean autoPlay) {
         init();
-        return native_preload(nativePtr);
+        post(new Runnable() {
+            @Override
+            public void run() {
+                int ret = -20;
+                try {
+                    ret = native_preload(nativePtr);
+                    mAllTime = getPlayTime();
+                }catch (Throwable e){
+                    e.printStackTrace();
+                }
+                if (mCallBack != null) {
+                    mCallBack.onVideoPreLoad(ret, getVideoWidth(), getVideoHeight(), getVideoRotate(), getVideoTime());
+                }
+                if(ret == 0 && autoPlay){
+                    play();
+                }
+            }
+        });
     }
 
     public int getVideoWidth() {
@@ -95,6 +138,26 @@ public class VideoPlayer implements Closeable {
         native_release(nativePtr);
     }
 
+    private void closeThread() {
+        if (mWorkThread != null && !mWorkThread.isInterrupted()) {
+            mWorkThread.interrupt();
+        }
+        mWorkThread = null;
+        mHandler = null;
+    }
+
+    private void checkThread() {
+        if (mWorkThread == null || mWorkThread.isInterrupted()) {
+            mWorkThread = new HandlerThread("kk_player_work");
+            mWorkThread.start();
+            mHandler = new Handler(mWorkThread.getLooper());
+        }
+    }
+    private void post(Runnable runnable){
+        checkThread();
+        mHandler.post(runnable);
+    }
+
     public void stop() {
         native_stop(nativePtr);
     }
@@ -104,7 +167,7 @@ public class VideoPlayer implements Closeable {
         native_close(nativePtr);
     }
 
-    public int seek(int ms) {
+    public int seek(double ms) {
         return native_seek(nativePtr, ms);
     }
 

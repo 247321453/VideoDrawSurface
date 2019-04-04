@@ -5,6 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
+    android:background="@color/colorPrimary"
     tools:context="com.max.ffmpegnativewindow.MainActivity">
 
     <net.kk.ffmpeg.widget.FixedFrameLayout
@@ -12,13 +13,13 @@
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_gravity="center"
-        android:background="@android:color/holo_green_dark"
         app:fixed_x="9"
         app:fixed_y="16">
 
         <SurfaceView
             android:id="@+id/videoSurface"
             android:layout_width="match_parent"
+            android:layout_gravity="center"
             android:layout_height="match_parent" />
     </net.kk.ffmpeg.widget.FixedFrameLayout>
 

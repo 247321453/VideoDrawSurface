@@ -21,7 +21,6 @@ import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageView;
-import android.widget.Spinner;
 import android.widget.TextView;
 
 import com.max.ffmpegnativewindow.ui.BaseAdapterPlus;
@@ -53,7 +52,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         return new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE};
     }
 
-    private TestInfo mTestInfo;
+    private TestInfo mTestInfo, mLastInfo;
 
     @Override
     protected void doOnCreate(Bundle savedInstanceState) {
@@ -69,7 +68,9 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         testSp.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                mLastInfo = mTestInfo;
                 mTestInfo = mMyAdapter.getDataItem(position);
+                player.seek(0);
             }
 
             @Override
@@ -141,67 +142,80 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
 
         final String path = editText.getText().toString();
         view.setEnabled(false);
-        if (!TextUtils.equals(player.getSource(), path)) {
-            player.setDataSource(path);
-        }
         if (player.isPlaying()) {
             if (player.isPlaying()) {
                 player.stop();
-                updatePlay(false);
             }
+            updatePlay(false);
         } else {
-            new Thread(this::playVideo).start();
+            if (!TextUtils.equals(player.getSource(), path)) {
+                player.setDataSource(path);
+                player.preload(false);
+            } else {
+                startPlay(player.getVideoWidth(), player.getVideoHeight(), player.getVideoRotate());
+            }
         }
         view.setEnabled(true);
-    }
-
-    private void playVideo() {
-        updatePlay(true);
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        int err = player.preload();
-        if (err < 0) {
-            updatePlay(false);
-            Log.e(TAG, "preload:" + err);
-            return;
-        }
-        if (mTestInfo != null) {
-            player.setSize(mTestInfo.width, mTestInfo.height, mTestInfo.stretch, mTestInfo.rotaion);
-            int w, h;
-            if (mTestInfo.width == 0) {
-                w = player.getVideoRotate() == 0 ? player.getVideoWidth() : player.getVideoHeight();
-            } else {
-                w = mTestInfo.width;
-            }
-            if (mTestInfo.height == 0) {
-                h = player.getVideoRotate() == 0 ? player.getVideoHeight() : player.getVideoWidth();
-            } else {
-                h = mTestInfo.height;
-            }
-            runOnUiThread(() -> {
-                mFixedFrameLayout.setTargetSize(w, h);
-            });
-        }
-        Log.i(TAG, "video time:" + player.getVideoTime());
-        player.seek(0);
-        err = player.play();
-        updatePlay(false);
-        if (err != 0) {
-            Log.e(TAG, "play:" + err);
-        }
     }
 
     private long time;
 
     @Override
+    public void onPlayStart() {
+
+    }
+
+    @Override
+    public void onPlayEnd(int error) {
+        updatePlay(false);
+        if (error != 0) {
+            Log.e(TAG, "play:" + error);
+        }
+    }
+
+    @Override
+    public void onVideoPreLoad(int error, int width, int height, int rotate, double allTime) {
+        if (error != 0) {
+            updatePlay(false);
+            Log.e(TAG, "preload:" + error);
+        } else {
+            startPlay(width, height, rotate);
+        }
+    }
+
+    private void startPlay(int width, int height, int rotate) {
+        if (mTestInfo != null) {
+            //跳转播放时间
+            player.setSize(mTestInfo.width, mTestInfo.height, mTestInfo.stretch, mTestInfo.rotation);
+            int w, h;
+            if (mTestInfo.width == 0) {
+                w = rotate == 0 ? width : height;
+            } else {
+                w = mTestInfo.width;
+            }
+            if (mTestInfo.height == 0) {
+                h = rotate == 0 ? height : width;
+            } else {
+                h = mTestInfo.height;
+            }
+            int r = mTestInfo.rotation;
+            Log.i("FixedLayout", "video size=" + width + "x" + height);
+            runOnUiThread(() -> {
+                updatePlay(true);
+                if (r == Surface.ROTATION_90 || r == Surface.ROTATION_270) {
+                    mFixedFrameLayout.setTargetSize(h, w);
+                } else {
+                    mFixedFrameLayout.setTargetSize(w, h);
+                }
+                player.play();
+            });
+        }
+    }
+
+    @Override
     public void onVideoProgress(double cur, double all) {
         //时间
     }
-
-    private int mVideoWidth, mVideoHeight;
 
     @Override
     public void onFrameCallBack(byte[] nv21Data, final int width, final int height) {
@@ -213,11 +227,6 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             byte[] bitData = fOut.toByteArray();
             final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
             runOnUiThread(() -> {
-                if (mVideoWidth != width && mVideoHeight != height) {
-                    mVideoWidth = width;
-                    mVideoHeight = height;
-                    mFixedFrameLayout.setTargetSize(width, height);
-                }
                 Log.d(TAG, "update image " + width + "x" + height);
                 BitmapUtils.dispose(img);
                 img.setImageBitmap(bitmap);
@@ -230,21 +239,21 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         int width;
         int height;
         boolean stretch;
-        int rotaion;
+        int rotation;
 
         public TestInfo(String name, int width, int height, boolean stretch, int rotaion) {
             this.name = name;
             this.width = width;
             this.height = height;
             this.stretch = stretch;
-            this.rotaion = rotaion;
+            this.rotation = rotaion;
         }
 
         @Override
         public String toString() {
             return name + " " + ((width > 0 && height > 0) ? (width + "x" + height) + "/" : "")
                     + (stretch ? "stretch" : "fixed")
-                    + " " + (rotaion * 90) + "°";
+                    + " " + (rotation * 90) + "°";
         }
     }
 
