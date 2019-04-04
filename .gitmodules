@@ -1,0 +1,3 @@
+[submodule "libyuvutil"]
+	path = libyuvutil
+	url = https://github.com/247321453/libyuv-wrapper.git
