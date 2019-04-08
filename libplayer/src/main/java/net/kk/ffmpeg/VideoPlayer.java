@@ -212,12 +212,19 @@ public class VideoPlayer implements Closeable {
     }
 
     public boolean takeImage() {
-        return takeImage(0, 0, 0);
+        return takeImage(0, 0, 0, false);
     }
 
-    public boolean takeImage(int width, int height, int rotation) {
+    /**
+     * @param width
+     * @param height
+     * @param rotation
+     * @param mirror   270度才建议使用
+     * @return
+     */
+    public boolean takeImage(int width, int height, int rotation, boolean mirror) {
         stop();
-        return native_take_image(nativePtr, width, height, rotation) == 0;
+        return native_take_image(nativePtr, width, height, rotation, mirror) == 0;
     }
 
     public boolean isPlaying() {
@@ -277,7 +284,7 @@ public class VideoPlayer implements Closeable {
 
     private native int native_get_rotate(long ptr);
 
-    private native int native_take_image(long ptr, int width, int height, int rotation);
+    private native int native_take_image(long ptr, int width, int height, int rotation, boolean mirror);
 
     /***
      * 原始 i420

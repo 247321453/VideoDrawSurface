@@ -398,8 +398,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 }
 
 
-int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, jint dst_width, jint dst_height,
-                           jint dst_rotation) {
+int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_height,
+                           int dst_rotation, bool mirror) {
     if (pTakeYuvBuf != nullptr && mJpegCallBackId != nullptr) {
         //TODO 处理i420得到jpeg数据
         uint8_t *i420 = pTakeYuvBuf;
@@ -476,9 +476,15 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, jint dst_width, jint dst_he
             h = dst_height;
             tmpData = scaleData;
         }
+        uint8_t * mirrorData = nullptr;
         if (ret == 0) {
             int yuvLen = w * h * 3 / 2;
             jbyte *yuvNv21Data = new jbyte[yuvLen];
+            if(mirror){
+                mirrorData = new uint8_t[yuvLen];
+                i420_mirror(tmpData, w, h, mirrorData);
+                tmpData = mirrorData;
+            }
             i420_to_nv21(tmpData, w, h, (uint8_t *) yuvNv21Data);
             jbyteArray yuvArray = env->NewByteArray(yuvLen);
             env->SetByteArrayRegion(yuvArray, 0, yuvLen, (jbyte *) yuvNv21Data);
@@ -487,6 +493,9 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, jint dst_width, jint dst_he
             free(yuvNv21Data);
         } else {
             env->CallVoidMethod(obj, mJpegCallBackId, NULL, ret, h);
+        }
+        if(mirrorData != nullptr){
+            free(mirrorData);
         }
         if (scaleData != nullptr) {
             free(scaleData);
