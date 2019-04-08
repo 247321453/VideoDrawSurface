@@ -243,26 +243,40 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
 
     @Override
     public void onTakeImageCallBack(byte[] nv21Data, int width, int height) {
-        YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
-        ByteArrayOutputStream fOut = new ByteArrayOutputStream();
-        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, fOut);
-        byte[] bitData = fOut.toByteArray();
-        final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
-        runOnUiThread(() -> {
-            Log.d(TAG, "onTakeImageCallBack update image " + width + "x" + height);
-            ImageView imageView = new ImageView(this);
-            imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        if (nv21Data != null) {
+            YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
+            ByteArrayOutputStream fOut = new ByteArrayOutputStream();
+            yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, fOut);
+            byte[] bitData = fOut.toByteArray();
+            final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
+            runOnUiThread(() -> {
+                Log.d(TAG, "onTakeImageCallBack update image " + width + "x" + height);
+                ImageView imageView = new ImageView(this);
+                imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+                new AlertDialog.Builder(this)
+                        .setTitle("take image")
+                        .setView(imageView)
+                        .setCancelable(false)
+                        .setNegativeButton("ok", (dlg, id) -> {
+                            dlg.dismiss();
+                            player.play();
+                            updatePlay(true);
+                        })
+                        .show();
+                imageView.setImageBitmap(bitmap);
+            });
+        } else {
             new AlertDialog.Builder(this)
                     .setTitle("take image")
-                    .setView(imageView)
+                    .setMessage("error:" + width)
                     .setCancelable(false)
                     .setNegativeButton("ok", (dlg, id) -> {
                         dlg.dismiss();
                         player.play();
+                        updatePlay(true);
                     })
                     .show();
-            imageView.setImageBitmap(bitmap);
-        });
+        }
     }
 
     private class TestInfo {

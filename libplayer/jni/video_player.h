@@ -23,12 +23,13 @@ namespace kk {
         //视频原始尺寸
         int video_width;
         int video_height;
-        int video_rotation;
+        int video_rotation = ROTATION_0;
         //当前角度
         int display_rotation;
         //当前播放尺寸
         int display_width;
         int display_height;
+        bool need_crop;
         bool need_scale;
 
         //原始尺寸的坐标
@@ -60,8 +61,8 @@ namespace kk {
             size->rotate_width = size->video_height;
             size->rotate_height = size->video_width;
             ALOGD("swap size: pre=%dx%d, now=%dx%d",
-                    size->video_width, size->video_height,
-                    size->rotate_width, size->rotate_height);
+                  size->video_width, size->video_height,
+                  size->rotate_width, size->rotate_height);
         } else {
             size->rotate_width = size->video_width;
             size->rotate_height = size->video_height;
@@ -83,10 +84,12 @@ namespace kk {
             //基于旋转后的宽高去计算缩放，裁剪
             if (dst_width == src_width && dst_height == src_height) {
                 size->need_scale = false;
+                size->need_crop = false;
                 //宽高一样，不需要裁剪，不需要缩放
                 ALOGD("size is same, don't scale and crop");
             } else {
                 //默认
+                size->need_crop = true;
                 size->need_scale = true;
                 if (!stretch) {
                     if ((((float) dst_width / (float) dst_height) ==
@@ -131,6 +134,7 @@ namespace kk {
             }
         } else {
             size->need_scale = false;
+            size->need_crop = false;
             ALOGD("don't scale and crop");
         }
 //        if (need_swap_size) {
@@ -220,7 +224,7 @@ namespace kk {
             return mPlaying;
         }
 
-        int TakeImage(JNIEnv *env, jobject obj,jint width, jint height, jint rotation);
+        int TakeImage(JNIEnv *env, jobject obj, jint width, jint height, jint rotation);
 
         ~VideoPlayer() {
             Close();
@@ -294,6 +298,7 @@ namespace kk {
             info->crop_y = 0;
             info->crop_width = 0;
             info->crop_height = 0;
+            info->need_crop = false;
 
             //
             info->scale_width = 0;

@@ -67,6 +67,7 @@ int VideoPlayer::PreLoad() {
     }
     //角度，宽高
     Info.video_rotation = av_get_rotation(steam);
+    ALOGD("video_rotation=%d", Info.video_rotation);
     pCodecCtx = avcodec_alloc_context3(NULL);
     avcodec_parameters_to_context(pCodecCtx, steam->codecpar);
     Info.video_width = pCodecCtx->width;
@@ -291,9 +292,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
           Info.video_width, Info.video_height,
           Info.display_width, Info.display_height,
           crop_x, crop_y, crop_w, crop_h);
-    bool not_scale_crop = Info.display_rotation == ROTATION_0 && (
-            crop_x == 0 && crop_y == 0 && crop_w == Info.video_width &&
-            crop_h == Info.video_height);
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
         //use the parser to split the data into frames
         //微秒
@@ -313,7 +311,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 //                time = cur;
                 mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
 
-                if (not_scale_crop) {
+                if (Info.display_rotation == ROTATION_0 && !Info.need_crop) {
                     //角度是0，并且不需要裁剪
                     tmpFrame = pFrame;
                 } else {
@@ -400,21 +398,102 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 }
 
 
-int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, jint dst_width, jint dst_height, jint dst_rotation) {
+int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, jint dst_width, jint dst_height,
+                           jint dst_rotation) {
     if (pTakeYuvBuf != nullptr && mJpegCallBackId != nullptr) {
         //TODO 处理i420得到jpeg数据
         uint8_t *i420 = pTakeYuvBuf;
         int video_width = Info.video_width;
         int video_height = Info.video_height;
         int video_rotation = Info.video_rotation;
-        int yuvLen = video_width * video_height * 3 / 2;
-        jbyte *yuvNv21Data = new jbyte[yuvLen];
-        i420_to_nv21(i420, video_width, video_height, (uint8_t *) yuvNv21Data);
-        jbyteArray yuvArray = env->NewByteArray(yuvLen);
-        env->SetByteArrayRegion(yuvArray, 0, yuvLen, (jbyte *) yuvNv21Data);
-        env->CallVoidMethod(obj, mJpegCallBackId, yuvArray, video_width, video_height);
-        env->ReleaseByteArrayElements(yuvArray, yuvNv21Data, JNI_COMMIT);
-        free(yuvNv21Data);
+
+        if (dst_rotation < 0) {
+            dst_rotation = 0;
+            video_rotation = 0;
+        }
+        VideoInfo info;
+        info.video_width = video_width;
+        info.video_height = video_height;
+        info.video_rotation = video_rotation;
+        initVideoSize(&info, dst_width, dst_height, dst_rotation%4, false);
+
+        int ret = 0;
+        uint8_t *tmpData;
+        uint8_t *cropData = nullptr;
+        uint8_t *scaleData = nullptr;
+        int w, h;
+        if (info.display_rotation == ROTATION_0 && !info.need_crop) {
+            //角度是0，并且不需要裁剪
+            tmpData = i420;
+            w = video_width;
+            h = video_height;
+        } else {
+            //旋转并且裁剪
+            int crop_x, crop_y, crop_w, crop_h;
+            if (info.need_swap_size) {
+                if (info.need_scale) {
+                    crop_x = info.crop_y;
+                    crop_y = info.crop_x;
+                    crop_w = info.crop_height;
+                    crop_h = info.crop_width;
+                } else {
+                    crop_x = 0;
+                    crop_y = 0;
+                    crop_w = info.rotate_height;
+                    crop_h = info.rotate_width;
+                }
+            } else {
+                if (info.need_scale) {
+                    crop_x = info.crop_x;
+                    crop_y = info.crop_y;
+                    crop_w = info.crop_width;
+                    crop_h = info.crop_height;
+                } else {
+                    crop_x = 0;
+                    crop_y = 0;
+                    crop_w = info.rotate_width;
+                    crop_h = info.rotate_height;
+                }
+            }
+            if (info.display_rotation == ROTATION_90 || info.display_rotation == ROTATION_270) {
+                w = crop_h;
+                h = crop_w;
+            } else {
+                w = crop_w;
+                h = crop_h;
+            }
+
+            cropData = new uint8_t[crop_w * crop_h * 3 / 2];
+            ret = i420_rotate_crop(i420, video_width, video_height, info.display_rotation,
+                                   crop_x, crop_y, crop_w, crop_h, cropData);
+            tmpData = cropData;
+        }
+        if (info.need_scale) {
+            //缩放
+            scaleData = new uint8_t[dst_width * dst_height * 3 / 2];
+            ret = i420_scale(tmpData, w, h, scaleData, dst_width, dst_height, 3);
+            w = dst_width;
+            h = dst_height;
+            tmpData = scaleData;
+        }
+        if (ret == 0) {
+            int yuvLen = w * h * 3 / 2;
+            jbyte *yuvNv21Data = new jbyte[yuvLen];
+            i420_to_nv21(tmpData, w, h, (uint8_t *) yuvNv21Data);
+            jbyteArray yuvArray = env->NewByteArray(yuvLen);
+            env->SetByteArrayRegion(yuvArray, 0, yuvLen, (jbyte *) yuvNv21Data);
+            env->CallVoidMethod(obj, mJpegCallBackId, yuvArray, w, h);
+            env->ReleaseByteArrayElements(yuvArray, yuvNv21Data, JNI_COMMIT);
+            free(yuvNv21Data);
+        } else {
+            env->CallVoidMethod(obj, mJpegCallBackId, NULL, ret, h);
+        }
+        if (scaleData != nullptr) {
+            free(scaleData);
+        }
+        if (cropData != nullptr) {
+            free(cropData);
+        }
         return 0;
     }
     return -1;
