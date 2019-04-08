@@ -160,10 +160,10 @@ jint jni_player_seek(JNIEnv *env, jobject obj, jlong ptr, jdouble time) {
     return -1;
 }
 
-jint jni_player_take_image(JNIEnv *env, jobject obj, jlong ptr){
+jint jni_player_take_image(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height, jint rotation){
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        return player->TakeImage(env, obj);
+        return player->TakeImage(env, obj, width, height, rotation);
     }
     return -1;
 }
@@ -274,7 +274,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_close",               "(J)V",                       (void *) jni_player_close},
             {"native_release",             "(J)V",                       (void *) jni_player_release},
             {"native_seek",                "(JD)I",                      (void *) jni_player_seek},
-            {"native_take_image",                "(J)I",                      (void *) jni_player_take_image},
+            {"native_take_image",                "(JIII)I",                      (void *) jni_player_take_image},
             {"native_get_cur_time",        "(J)D",                       (void *) jni_player_get_play_time},
             {"native_get_all_time",        "(J)D",                       (void *) jni_player_get_video_time},
             {"native_get_status",          "(J)I",                       (void *) jni_player_get_status},

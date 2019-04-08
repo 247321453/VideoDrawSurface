@@ -48,6 +48,14 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
                 android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/btn_take_image"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:onClick="onTakeImage"
+                android:text="take image" />
         </LinearLayout>
 
         <LinearLayout

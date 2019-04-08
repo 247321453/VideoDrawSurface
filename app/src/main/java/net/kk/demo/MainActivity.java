@@ -1,6 +1,7 @@
 package net.kk.demo;
 
 import android.Manifest;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -148,11 +149,6 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         if (player.isPlaying()) {
             if (player.isPlaying()) {
                 player.stop();
-                //测试截图
-                BitmapUtils.dispose(img);
-                img.setImageBitmap(null);
-                img.setImageResource(android.R.drawable.sym_def_app_icon);
-                player.takeImage();
             }
             updatePlay(false);
         } else {
@@ -207,7 +203,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             } else {
                 h = mTestInfo.height;
             }
-            Log.i("FixedLayout", "video size=" + width + "x" + height+", target="+w+"x"+h);
+            Log.i("FixedLayout", "video size=" + width + "x" + height + ", target=" + w + "x" + h);
             runOnUiThread(() -> {
                 updatePlay(true);
                 mFixedFrameLayout.setTargetSize(w, h);
@@ -238,6 +234,13 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         }
     }
 
+
+    public void onTakeImage(View v) {
+        player.stop();
+        //测试截图
+        player.takeImage(0, 0, 0);
+    }
+
     @Override
     public void onTakeImageCallBack(byte[] nv21Data, int width, int height) {
         YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
@@ -247,8 +250,18 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
         runOnUiThread(() -> {
             Log.d(TAG, "onTakeImageCallBack update image " + width + "x" + height);
-            BitmapUtils.dispose(img);
-            img.setImageBitmap(bitmap);
+            ImageView imageView = new ImageView(this);
+            imageView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            new AlertDialog.Builder(this)
+                    .setTitle("take image")
+                    .setView(imageView)
+                    .setCancelable(false)
+                    .setNegativeButton("ok", (dlg, id) -> {
+                        dlg.dismiss();
+                        player.play();
+                    })
+                    .show();
+            imageView.setImageBitmap(bitmap);
         });
     }
 

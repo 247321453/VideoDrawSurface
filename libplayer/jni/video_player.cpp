@@ -400,19 +400,19 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 }
 
 
-int VideoPlayer::TakeImage(JNIEnv *env, jobject obj) {
+int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, jint dst_width, jint dst_height, jint dst_rotation) {
     if (pTakeYuvBuf != nullptr && mJpegCallBackId != nullptr) {
         //TODO 处理i420得到jpeg数据
         uint8_t *i420 = pTakeYuvBuf;
-        int width = Info.video_width;
-        int height = Info.video_height;
-        int rotation = Info.video_rotation;
-        int yuvLen = width * height * 3 / 2;
+        int video_width = Info.video_width;
+        int video_height = Info.video_height;
+        int video_rotation = Info.video_rotation;
+        int yuvLen = video_width * video_height * 3 / 2;
         jbyte *yuvNv21Data = new jbyte[yuvLen];
-        i420_to_nv21(i420, width, height, (uint8_t*)yuvNv21Data);
+        i420_to_nv21(i420, video_width, video_height, (uint8_t *) yuvNv21Data);
         jbyteArray yuvArray = env->NewByteArray(yuvLen);
         env->SetByteArrayRegion(yuvArray, 0, yuvLen, (jbyte *) yuvNv21Data);
-        env->CallVoidMethod(obj, mJpegCallBackId, yuvArray, width, height);
+        env->CallVoidMethod(obj, mJpegCallBackId, yuvArray, video_width, video_height);
         env->ReleaseByteArrayElements(yuvArray, yuvNv21Data, JNI_COMMIT);
         free(yuvNv21Data);
         return 0;

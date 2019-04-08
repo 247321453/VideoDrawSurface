@@ -220,7 +220,7 @@ namespace kk {
             return mPlaying;
         }
 
-        int TakeImage(JNIEnv *env, jobject obj);
+        int TakeImage(JNIEnv *env, jobject obj,jint width, jint height, jint rotation);
 
         ~VideoPlayer() {
             Close();
