@@ -178,8 +178,9 @@ namespace kk {
             mFileName = path;
         }
 
-        void SetCallBack(jmethodID callback, bool needNv21Data) {
-            mCallBackId = callback;
+        void SetCallBack(jmethodID yuv_callback, jmethodID jpeg_callback, bool needNv21Data) {
+            mYuvCallBackId = yuv_callback;
+            mJpegCallBackId = jpeg_callback;
             mNeedNv21Data = needNv21Data;
         }
 
@@ -204,7 +205,7 @@ namespace kk {
         }
 
         uint8_t *GetVideoLastFrame() {
-            return pTakeImageBuf;
+            return pTakeYuvBuf;
         }
 
         int GetVideoLastLength() {
@@ -219,20 +220,16 @@ namespace kk {
             return mPlaying;
         }
 
-        void TakeImage(bool take) {
-            mTakeImage = take;
-        }
+        int TakeImage(JNIEnv *env, jobject obj);
 
         ~VideoPlayer() {
             Close();
         }
 
     private:
-        bool mTakeImage;
         bool mPreLoad;
         //循环播放
         bool mPlaying;
-        bool mClose;
 
         int mVideoStream = -1;
         // 用户需要的尺寸
@@ -260,12 +257,13 @@ namespace kk {
         uint8_t *pRgbaBuf = nullptr;
         uint8_t *pNv21Buf = nullptr;
         //原始i420数据
-        uint8_t *pTakeImageBuf = nullptr;
+        uint8_t *pTakeYuvBuf = nullptr;
         int pVideoYuvLen = -1;
         struct SwsContext *pRGBASwsCtx = nullptr;
         struct SwsContext *pNv21SwsCtx = nullptr;
 
-        jmethodID mCallBackId = nullptr;
+        jmethodID mJpegCallBackId = nullptr;
+        jmethodID mYuvCallBackId = nullptr;
         const char *mFileName = nullptr;
 
         double mVideoCurDuration = 0;

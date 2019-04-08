@@ -11,7 +11,38 @@ extern "C" {
 #include "util.h"
 #include "debug.h"
 
-int av_frame_to_jpeg(AVFrame* frame,uint8_t * jpeg, int q){
+int av_frame_to_nv21(AVFrame *frame, uint8_t *nv21) {
+    int width = frame->width;
+    int height = frame->height;
+    int y_size = width * height;
+    int ret = libyuv::I420ToNV21(
+            frame->data[0], frame->linesize[0],
+            frame->data[1], frame->linesize[1],
+            frame->data[2], frame->linesize[2],
+            nv21, width,
+            nv21 + y_size, width,
+            width, height);
+    return ret;
+    return ret;
+}
+
+int av_frame_to_i420(AVFrame *frame, uint8_t *i420) {
+    int width = frame->width;
+    int height = frame->height;
+    int y_size = width * height;
+    int u_size = (width >> 1) * (height >> 1);
+    int ret = libyuv::I420Copy(frame->data[0], frame->linesize[0],
+                               frame->data[1], frame->linesize[1],
+                               frame->data[2], frame->linesize[2],
+                               i420, frame->linesize[0],
+                               i420 + y_size, frame->linesize[1],
+                               i420 + y_size + u_size, frame->linesize[2],
+                               width, height
+    );
+    return ret;
+}
+
+int av_frame_to_jpeg(AVFrame *frame, uint8_t *jpeg, int q) {
     //TODO
     return 0;
 }
@@ -79,6 +110,7 @@ int av_frame_scale(AVFrame *src, AVFrame *dst, int dst_width, int dst_height) {
             dst_width, dst_height, libyuv::kFilterBox
     );
 }
+
 /**
  *
  * @param src

@@ -16,6 +16,9 @@ extern "C"{
 #define ROTATION_180 2
 #define ROTATION_270 3
 
+int av_frame_to_nv21(AVFrame *frame, uint8_t *nv21);
+int av_frame_to_i420(AVFrame *frame, uint8_t *i420);
+int av_frame_to_jpeg(AVFrame *frame, uint8_t *jpeg, int q);
 int av_get_rotation(AVStream *st);
 long getCurTime();
 int av_yuv420p_to_nv21(AVFrame *frame, int width, int height, uint8_t *nv21Data);

@@ -79,9 +79,10 @@ jni_player_set_callback(JNIEnv *env, jobject obj, jlong ptr, jboolean callback) 
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         jclass clazz = env->GetObjectClass(obj);
-        jmethodID javaCallback = env->GetMethodID(clazz, "onFrameCallBack", "([BIIDD)V");
-        if (javaCallback != NULL) {
-            player->SetCallBack(javaCallback, callback);
+        jmethodID yuv_callback = env->GetMethodID(clazz, "onFrameCallBack", "([BIIDD)V");
+        jmethodID jpeg_callback = env->GetMethodID(clazz, "onImageCallBack", "([BII)V");
+        if (yuv_callback != NULL) {
+            player->SetCallBack(yuv_callback, jpeg_callback, callback);
         } else {
             ALOGW("not found callback onFrameCallBack([BIIDD)V");
         }
@@ -155,6 +156,14 @@ jint jni_player_seek(JNIEnv *env, jobject obj, jlong ptr, jdouble time) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         return player->Seek(time);
+    }
+    return -1;
+}
+
+jint jni_player_take_image(JNIEnv *env, jobject obj, jlong ptr){
+    if (ptr != 0) {
+        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        return player->TakeImage(env, obj);
     }
     return -1;
 }
@@ -265,6 +274,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_close",               "(J)V",                       (void *) jni_player_close},
             {"native_release",             "(J)V",                       (void *) jni_player_release},
             {"native_seek",                "(JD)I",                      (void *) jni_player_seek},
+            {"native_take_image",                "(J)I",                      (void *) jni_player_take_image},
             {"native_get_cur_time",        "(J)D",                       (void *) jni_player_get_play_time},
             {"native_get_all_time",        "(J)D",                       (void *) jni_player_get_video_time},
             {"native_get_status",          "(J)I",                       (void *) jni_player_get_status},
@@ -273,7 +283,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_get_last_argb_image", "(J[BIII)I",                  (void *) jni_player_get_last_argb_image},
             //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
-    if (env->RegisterNatives(video_player, methods, 20) < 0) {
+    if (env->RegisterNatives(video_player, methods, 21) < 0) {
         return JNI_ERR;
     }
     jclass yuv_util = (jclass) env->NewGlobalRef(env->FindClass(JNI_YUV_UTIL_CLASS_NAME));

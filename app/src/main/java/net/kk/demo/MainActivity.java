@@ -148,6 +148,11 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         if (player.isPlaying()) {
             if (player.isPlaying()) {
                 player.stop();
+                //测试截图
+                BitmapUtils.dispose(img);
+                img.setImageBitmap(null);
+                img.setImageResource(android.R.drawable.sym_def_app_icon);
+                player.takeImage();
             }
             updatePlay(false);
         } else {
@@ -226,11 +231,25 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             byte[] bitData = fOut.toByteArray();
             final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
             runOnUiThread(() -> {
-                Log.d(TAG, "update image " + width + "x" + height);
+                Log.d(TAG, "onFrameCallBack update image " + width + "x" + height);
                 BitmapUtils.dispose(img);
                 img.setImageBitmap(bitmap);
             });
         }
+    }
+
+    @Override
+    public void onTakeImageCallBack(byte[] nv21Data, int width, int height) {
+        YuvImage yuvImage = new YuvImage(nv21Data, ImageFormat.NV21, width, height, null);
+        ByteArrayOutputStream fOut = new ByteArrayOutputStream();
+        yuvImage.compressToJpeg(new Rect(0, 0, width, height), 100, fOut);
+        byte[] bitData = fOut.toByteArray();
+        final Bitmap bitmap = BitmapFactory.decodeByteArray(bitData, 0, bitData.length);
+        runOnUiThread(() -> {
+            Log.d(TAG, "onTakeImageCallBack update image " + width + "x" + height);
+            BitmapUtils.dispose(img);
+            img.setImageBitmap(bitmap);
+        });
     }
 
     private class TestInfo {

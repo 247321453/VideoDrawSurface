@@ -3,6 +3,8 @@
 //
 
 #include <android/native_window_jni.h>
+#include <unistd.h>
+#include <yuv_util.h>
 #include "video_player.h"
 #include "util.h"
 #include "debug.h"
@@ -10,7 +12,6 @@
 using namespace kk;
 
 VideoPlayer::VideoPlayer() {
-    mClose = true;
     mPlaying = false;
 }
 
@@ -86,8 +87,8 @@ int VideoPlayer::PreLoad() {
 
 void VideoPlayer::Close() {
     mPlaying = false;
-    mClose = true;
-    mCallBackId = nullptr;
+    mYuvCallBackId = nullptr;
+    mJpegCallBackId = nullptr;
     if (pNativeWindow != nullptr) {
         ANativeWindow_release(pNativeWindow);
         pNativeWindow = nullptr;
@@ -96,10 +97,10 @@ void VideoPlayer::Close() {
 }
 
 void VideoPlayer::Release(bool resize) {
-    if (pTakeImageBuf != nullptr) {
-        free(pTakeImageBuf);
+    if (pTakeYuvBuf != nullptr) {
+        free(pTakeYuvBuf);
         pVideoYuvLen = -1;
-        pTakeImageBuf = nullptr;
+        pTakeYuvBuf = nullptr;
     }
     if (pScaleBuf != nullptr) {
         av_free(pScaleBuf);
@@ -176,9 +177,9 @@ int VideoPlayer::initData() {
         return -7;
     }
     //存放原始数据
-    if (pTakeImageBuf == nullptr) {
+    if (pTakeYuvBuf == nullptr) {
         pVideoYuvLen = Info.video_width * Info.video_height * 3 / 2;
-        pTakeImageBuf = new uint8_t[pVideoYuvLen];
+        pTakeYuvBuf = new uint8_t[pVideoYuvLen];
     }
     if (Info.display_rotation != ROTATION_0 || Info.need_scale) {
         if (pRotateCropFrame == nullptr) {
@@ -234,7 +235,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (ret != 0) {
         return ret;
     }
-    mTakeImage = false;
     initVideoSize(&Info, mPreviewWidth, mPreviewHeight, mPreRotation, mStretchMode);
     ret = initData();
     if (ret != 0) {
@@ -258,7 +258,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
         yuvArray = env->NewByteArray(yuvLen);
     }
     bool error = false;
-    long time, cur;
+//    long time, cur;
     ALOGD("start av_read_frame");
 
     int crop_x, crop_y, crop_w, crop_h;
@@ -291,10 +291,12 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
           Info.video_width, Info.video_height,
           Info.display_width, Info.display_height,
           crop_x, crop_y, crop_w, crop_h);
-    bool not_scale_crop = Info.display_rotation == ROTATION_0 &&(
-            crop_x == 0 && crop_y == 0 && crop_w == Info.video_width && crop_h == Info.video_height);
+    bool not_scale_crop = Info.display_rotation == ROTATION_0 && (
+            crop_x == 0 && crop_y == 0 && crop_w == Info.video_width &&
+            crop_h == Info.video_height);
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
         //use the parser to split the data into frames
+        //微秒
         if (packet.stream_index == mVideoStream) {
             ret = avcodec_send_packet(pCodecCtx, &packet);
 
@@ -304,18 +306,13 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
             }
 
             while (mPlaying && avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
-                time = getCurTime();
+//                time = getCurTime();
+                av_frame_to_i420(pFrame, pTakeYuvBuf);
+//                cur = getCurTime();
+//                ALOGD("copy i420 data use time :%ld", (cur - time));
+//                time = cur;
                 mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
-                if (mTakeImage) {
-                    mTakeImage = false;
-                    if (pTakeImageBuf != nullptr) {
-                        size_t src_y_step = pFrame->linesize[1] * sizeof(uint8_t);
-                        size_t src_u_step = pFrame->linesize[2] * sizeof(uint8_t);
-//                        memcpy(pTakeImageBuf, pFrame->data[0], src_y_step);//拷贝Y分量
-//                        memcpy(pTakeImageBuf + pFrame->linesize[1], pFrame->data[1], src_u_step);//u
-//                        memcpy(pTakeImageBuf + pFrame->linesize[1] + pFrame->linesize[2], pFrame->data[2], src_u_step);//v
-                    }
-                }
+
                 if (not_scale_crop) {
                     //角度是0，并且不需要裁剪
                     tmpFrame = pFrame;
@@ -340,8 +337,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                     }
                     tmpFrame = pScaleFrame;
                 }
-                cur = getCurTime();
-                ALOGD("yuv rotate,crop, scale use time %ld", (cur - time));
+//                cur = getCurTime();
+//                ALOGD("yuv rotate,crop, scale use time %ld", (cur - time));
                 //surface绘制
                 if (pNativeWindow != nullptr) {
                     sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
@@ -359,7 +356,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                         ANativeWindow_unlockAndPost(pNativeWindow);
                     }
                 }
-                if (mCallBackId != nullptr) {
+                if (mYuvCallBackId != nullptr) {
                     if (mNeedNv21Data) {
                         sws_scale(pNv21SwsCtx, (uint8_t const *const *) tmpFrame->data,
                                   tmpFrame->linesize, 0, Info.display_height,
@@ -368,12 +365,12 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                             memcpy(yuvNv21Data, pFrameNv21->data[0], y_step);//拷贝Y分量
                             memcpy(yuvNv21Data + y_step, pFrameNv21->data[1], y_step / 2);//uv
                             env->SetByteArrayRegion(yuvArray, 0, yuvLen, yuvNv21Data);
-                            env->CallVoidMethod(obj, mCallBackId, yuvArray, Info.display_width,
+                            env->CallVoidMethod(obj, mYuvCallBackId, yuvArray, Info.display_width,
                                                 Info.display_height, mVideoCurDuration,
                                                 mVideoAllDuration);
                         }
                     } else {
-                        env->CallVoidMethod(obj, mCallBackId, NULL, Info.display_width,
+                        env->CallVoidMethod(obj, mYuvCallBackId, NULL, Info.display_width,
                                             Info.display_height, mVideoCurDuration,
                                             mVideoAllDuration);
                     }
@@ -400,4 +397,25 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
         return ret;
     }
     return 0;
+}
+
+
+int VideoPlayer::TakeImage(JNIEnv *env, jobject obj) {
+    if (pTakeYuvBuf != nullptr && mJpegCallBackId != nullptr) {
+        //TODO 处理i420得到jpeg数据
+        uint8_t *i420 = pTakeYuvBuf;
+        int width = Info.video_width;
+        int height = Info.video_height;
+        int rotation = Info.video_rotation;
+        int yuvLen = width * height * 3 / 2;
+        jbyte *yuvNv21Data = new jbyte[yuvLen];
+        i420_to_nv21(i420, width, height, (uint8_t*)yuvNv21Data);
+        jbyteArray yuvArray = env->NewByteArray(yuvLen);
+        env->SetByteArrayRegion(yuvArray, 0, yuvLen, (jbyte *) yuvNv21Data);
+        env->CallVoidMethod(obj, mJpegCallBackId, yuvArray, width, height);
+        env->ReleaseByteArrayElements(yuvArray, yuvNv21Data, JNI_COMMIT);
+        free(yuvNv21Data);
+        return 0;
+    }
+    return -1;
 }

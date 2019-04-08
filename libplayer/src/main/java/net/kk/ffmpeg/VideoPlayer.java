@@ -30,6 +30,8 @@ public class VideoPlayer implements Closeable {
 
         void onVideoPreLoad(int error, int width, int heigh, int rotate, double allTime);
 
+        void onTakeImageCallBack(byte[] nv21Data, int width, int height);
+
         void onFrameCallBack(byte[] nv21Data, int width, int height);
     }
 
@@ -89,7 +91,7 @@ public class VideoPlayer implements Closeable {
                 int ret = -20;
                 try {
                     ret = native_play(nativePtr);
-                }catch (Throwable e){
+                } catch (Throwable e) {
                     e.printStackTrace();
                 }
                 if (mCallBack != null) {
@@ -108,13 +110,13 @@ public class VideoPlayer implements Closeable {
                 try {
                     ret = native_preload(nativePtr);
                     mAllTime = getPlayTime();
-                }catch (Throwable e){
+                } catch (Throwable e) {
                     e.printStackTrace();
                 }
                 if (mCallBack != null) {
                     mCallBack.onVideoPreLoad(ret, getVideoWidth(), getVideoHeight(), getVideoRotate(), getVideoTime());
                 }
-                if(ret == 0 && autoPlay){
+                if (ret == 0 && autoPlay) {
                     play();
                 }
             }
@@ -152,13 +154,20 @@ public class VideoPlayer implements Closeable {
             mHandler = new Handler(mWorkThread.getLooper());
         }
     }
-    private void post(Runnable runnable){
+
+    private void post(Runnable runnable) {
         checkThread();
         mHandler.post(runnable);
     }
 
     public void stop() {
         native_stop(nativePtr);
+    }
+
+    public void resume() {
+    }
+
+    public void pause() {
     }
 
     @Override
@@ -178,6 +187,20 @@ public class VideoPlayer implements Closeable {
         return native_get_all_time(nativePtr);
     }
 
+    /**
+     * 截图
+     *
+     * @param data
+     * @param width
+     * @param height
+     */
+    @Keep
+    public void onImageCallBack(byte[] data, int width, int height) {
+        if (mCallBack != null) {
+            mCallBack.onTakeImageCallBack(data, width, height);
+        }
+    }
+
     @Keep
     public void onFrameCallBack(byte[] nv21Data, int width, int height, double progress, double alltime) {
         if (mCallBack != null) {
@@ -188,8 +211,17 @@ public class VideoPlayer implements Closeable {
         }
     }
 
+    public boolean takeImage() {
+        stop();
+        return native_take_image(nativePtr) == 0;
+    }
+
     public boolean isPlaying() {
         return native_get_status(nativePtr) == 1;
+    }
+
+    public boolean isPause() {
+        return false;
     }
 
     private static void init() {
@@ -241,11 +273,13 @@ public class VideoPlayer implements Closeable {
 
     private native int native_get_rotate(long ptr);
 
+    private native int native_take_image(long ptr);
+
     /***
      * 原始 i420
      */
     private native int native_get_last_frame(long ptr, byte[] yuvData);
 
-    private native int native_get_last_argb_image(long ptr, byte[] argb, int width, int height,int rotation);
+    private native int native_get_last_argb_image(long ptr, byte[] argb, int width, int height, int rotation);
 //    private static native int native_test_play(Surface surface, String path);
 }
