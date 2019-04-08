@@ -238,7 +238,7 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
     public void onTakeImage(View v) {
         player.stop();
         //测试截图
-        player.takeImage(0, 0, 0);
+        player.takeImage(500, 400, 0);
     }
 
     @Override
