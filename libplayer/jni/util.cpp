@@ -127,13 +127,6 @@ int av_frame_rotate_crop(AVFrame *src, int rotation,
         dst->linesize[1] = dst_width >> 1;
         dst->linesize[2] = dst_width >> 1;
     }
-
-    if (mode == libyuv::kRotate0) {
-        dst->data[0] = src->data[0];
-        dst->data[1] = src->data[1];
-        dst->data[2] = src->data[2];
-        return 0;
-    }
     int ret = libyuv::I420Rotate(
             src_y, src->linesize[0],
             src_u, src->linesize[1],

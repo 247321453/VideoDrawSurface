@@ -96,8 +96,9 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
         items.add(new TestInfo("逆时针旋转90度", 0, 0, false, Surface.ROTATION_270));
         items.add(new TestInfo("4：3画面拉伸", 900, 1200, true, Surface.ROTATION_0));
         items.add(new TestInfo("按4：3比例缩放", 900, 1200, false, Surface.ROTATION_0));
-        items.add(new TestInfo("宽高对换测试2", 1280, 720, false, Surface.ROTATION_0));
+        items.add(new TestInfo("宽高对换测试1", 1280, 720, false, Surface.ROTATION_0));
         items.add(new TestInfo("宽高对换测试2", 1280, 720, false, Surface.ROTATION_90));
+        items.add(new TestInfo("宽高对换测试3", 1280, 720, false, Surface.ROTATION_270));
         return items;
     }
 
@@ -190,25 +191,21 @@ public class MainActivity extends BaseActivity implements SurfaceHolder.Callback
             //跳转播放时间
             player.setSize(mTestInfo.width, mTestInfo.height, mTestInfo.stretch, mTestInfo.rotation);
             int w, h;
+            int r = (mTestInfo.rotation + rotate) % 4;
             if (mTestInfo.width == 0) {
-                w = rotate == 0 ? width : height;
+                w = r % 2 == 0 ? width : height;
             } else {
                 w = mTestInfo.width;
             }
             if (mTestInfo.height == 0) {
-                h = rotate == 0 ? height : width;
+                h = r % 2 == 0 ? height : width;
             } else {
                 h = mTestInfo.height;
             }
-            int r = mTestInfo.rotation;
-            Log.i("FixedLayout", "video size=" + width + "x" + height);
+            Log.i("FixedLayout", "video size=" + width + "x" + height+", target="+w+"x"+h);
             runOnUiThread(() -> {
                 updatePlay(true);
-                if (r == Surface.ROTATION_90 || r == Surface.ROTATION_270) {
-                    mFixedFrameLayout.setTargetSize(h, w);
-                } else {
-                    mFixedFrameLayout.setTargetSize(w, h);
-                }
+                mFixedFrameLayout.setTargetSize(w, h);
                 player.play();
             });
         }

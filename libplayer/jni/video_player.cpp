@@ -96,10 +96,10 @@ void VideoPlayer::Close() {
 }
 
 void VideoPlayer::Release(bool resize) {
-    if (pVideoYuv != nullptr) {
-        free(pVideoYuv);
+    if (pTakeImageBuf != nullptr) {
+        free(pTakeImageBuf);
         pVideoYuvLen = -1;
-        pVideoYuv = nullptr;
+        pTakeImageBuf = nullptr;
     }
     if (pScaleBuf != nullptr) {
         av_free(pScaleBuf);
@@ -176,9 +176,9 @@ int VideoPlayer::initData() {
         return -7;
     }
     //存放原始数据
-    if (pVideoYuv == nullptr) {
+    if (pTakeImageBuf == nullptr) {
         pVideoYuvLen = Info.video_width * Info.video_height * 3 / 2;
-        pVideoYuv = new uint8_t[pVideoYuvLen];
+        pTakeImageBuf = new uint8_t[pVideoYuvLen];
     }
     if (Info.display_rotation != ROTATION_0 || Info.need_scale) {
         if (pRotateCropFrame == nullptr) {
@@ -234,6 +234,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (ret != 0) {
         return ret;
     }
+    mTakeImage = false;
     initVideoSize(&Info, mPreviewWidth, mPreviewHeight, mPreRotation, mStretchMode);
     ret = initData();
     if (ret != 0) {
@@ -259,19 +260,9 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     bool error = false;
     long time, cur;
     ALOGD("start av_read_frame");
-    bool need_swap_size = Info.need_swap_size;
-    bool not_scale_crop = Info.display_rotation == ROTATION_0 && Info.need_scale;
-    int crop_x,crop_y,crop_w,crop_h;
-    if (need_swap_size) {
-        if (!Info.need_scale) {
 
-        }
-    }else{
-        if (!Info.need_scale) {
-
-        }
-    }
-    if (need_swap_size) {
+    int crop_x, crop_y, crop_w, crop_h;
+    if (Info.need_swap_size) {
         if (Info.need_scale) {
             crop_x = Info.crop_y;
             crop_y = Info.crop_x;
@@ -298,8 +289,10 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     }
     ALOGD("src=%dx%d, dst=%dx%d crop %d,%d %dx%d",
           Info.video_width, Info.video_height,
-          Info.scale_width, Info.scale_height,
+          Info.display_width, Info.display_height,
           crop_x, crop_y, crop_w, crop_h);
+    bool not_scale_crop = Info.display_rotation == ROTATION_0 &&(
+            crop_x == 0 && crop_y == 0 && crop_w == Info.video_width && crop_h == Info.video_height);
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
         //use the parser to split the data into frames
         if (packet.stream_index == mVideoStream) {
@@ -313,6 +306,16 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
             while (mPlaying && avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
                 time = getCurTime();
                 mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
+                if (mTakeImage) {
+                    mTakeImage = false;
+                    if (pTakeImageBuf != nullptr) {
+                        size_t src_y_step = pFrame->linesize[1] * sizeof(uint8_t);
+                        size_t src_u_step = pFrame->linesize[2] * sizeof(uint8_t);
+//                        memcpy(pTakeImageBuf, pFrame->data[0], src_y_step);//拷贝Y分量
+//                        memcpy(pTakeImageBuf + pFrame->linesize[1], pFrame->data[1], src_u_step);//u
+//                        memcpy(pTakeImageBuf + pFrame->linesize[1] + pFrame->linesize[2], pFrame->data[2], src_u_step);//v
+                    }
+                }
                 if (not_scale_crop) {
                     //角度是0，并且不需要裁剪
                     tmpFrame = pFrame;
@@ -384,14 +387,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
         av_packet_unref(&packet);
     }
     ALOGD("end av_read_frame");
-    //pFrame
-//    size_t src_y_step = Info.video_width * Info.video_height * sizeof(uint8_t);
-//    size_t src_u_step = (Info.video_width >> 1) * (Info.video_height >> 1) * sizeof(uint8_t);
-//    ALOGD("fill last frame");
-//    memcpy(pVideoYuv, pFrame->data[0], src_y_step);//拷贝Y分量
-//    memcpy(pVideoYuv + src_y_step, pFrame->data[1], src_u_step);//u
-//    memcpy(pVideoYuv + src_y_step + src_u_step, pFrame->data[2], src_u_step);//v
-//    
     if (yuvArray != nullptr && yuvNv21Data != nullptr) {
         env->ReleaseByteArrayElements(yuvArray, yuvNv21Data, JNI_COMMIT);
     }

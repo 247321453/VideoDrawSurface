@@ -49,28 +49,31 @@ namespace kk {
     initVideoSize(VideoInfo *size, int dst_width, int dst_height, int dst_rotation, bool stretch) {
         ALOGD("video:rotation=%d, width=%d,height=%d", size->video_rotation, size->video_width,
               size->video_height);
-        size->display_rotation = size->video_rotation;
         //按照比例自动旋转
+        int rotation = size->video_rotation;
         if (dst_rotation > 0) {
-            size->display_rotation = (size->display_rotation + dst_rotation) % 4; // 0-3
-            ALOGD("has pre rotate: pre=%d, now=%d", dst_rotation, size->display_rotation);
+            rotation = (rotation + dst_rotation) % 4; // 0-3
+            ALOGD("has pre rotate: pre=%d, now=%d", dst_rotation, rotation);
         }
-        bool need_swap_size =
-                size->display_rotation == ROTATION_90 || size->display_rotation == ROTATION_270;
-        if (need_swap_size) {
+        size->need_swap_size = (rotation == ROTATION_90 || rotation == ROTATION_270);
+        if (size->need_swap_size) {
             size->rotate_width = size->video_height;
             size->rotate_height = size->video_width;
+            ALOGD("swap size: pre=%dx%d, now=%dx%d",
+                    size->video_width, size->video_height,
+                    size->rotate_width, size->rotate_height);
         } else {
             size->rotate_width = size->video_width;
             size->rotate_height = size->video_height;
         }
+        size->display_rotation = rotation;
         //旋转之后的
         size->display_width = size->rotate_width;
         size->display_height = size->rotate_height;
         size->crop_x = 0;
         size->crop_y = 0;
-        size->crop_width = size->video_width;
-        size->crop_height = size->video_height;
+        size->crop_width = size->display_width;
+        size->crop_height = size->display_height;
         size->scale_width = dst_width;
         size->scale_height = dst_height;
 
@@ -121,12 +124,14 @@ namespace kk {
                                   size->crop_height);
                         } else {
                             //
+                            ALOGW("how to crop?");
                         }
                     }
                 }
             }
         } else {
             size->need_scale = false;
+            ALOGD("don't scale and crop");
         }
 //        if (need_swap_size) {
 //            //上门是基于旋转后计算的，需要交换
@@ -154,6 +159,7 @@ namespace kk {
             mPreviewWidth = width;
             mPreviewHeight = height;
             mPreRotation = preRotation;
+            initVideoSize(&Info, width, height, preRotation, stretch);
         }
 
         void SetSurface(ANativeWindow *surface) {
@@ -198,7 +204,7 @@ namespace kk {
         }
 
         uint8_t *GetVideoLastFrame() {
-            return pVideoYuv;
+            return pTakeImageBuf;
         }
 
         int GetVideoLastLength() {
@@ -213,11 +219,16 @@ namespace kk {
             return mPlaying;
         }
 
+        void TakeImage(bool take) {
+            mTakeImage = take;
+        }
+
         ~VideoPlayer() {
             Close();
         }
 
     private:
+        bool mTakeImage;
         bool mPreLoad;
         //循环播放
         bool mPlaying;
@@ -249,7 +260,7 @@ namespace kk {
         uint8_t *pRgbaBuf = nullptr;
         uint8_t *pNv21Buf = nullptr;
         //原始i420数据
-        uint8_t *pVideoYuv = nullptr;
+        uint8_t *pTakeImageBuf = nullptr;
         int pVideoYuvLen = -1;
         struct SwsContext *pRGBASwsCtx = nullptr;
         struct SwsContext *pNv21SwsCtx = nullptr;
