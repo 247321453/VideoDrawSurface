@@ -241,5 +241,11 @@ public class VideoPlayer implements Closeable {
 
     private native int native_get_rotate(long ptr);
 
+    /***
+     * 原始 i420
+     */
+    private native int native_get_last_frame(long ptr, byte[] yuvData);
+
+    private native int native_get_last_argb_image(long ptr, byte[] argb, int width, int height,int rotation);
 //    private static native int native_test_play(Surface surface, String path);
 }

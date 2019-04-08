@@ -74,13 +74,15 @@ include $(CLEAR_VARS)
 LOCAL_MODULE := kkplayer
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/include
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/../../libjpeg/jni/libjpeg-turbo-2.0.1
 LOCAL_C_INCLUDES += $(LOCAL_LIBYUV_DIR)
 LOCAL_C_INCLUDES += $(LOCAL_LIBYUV_DIR)/libyuv/include
 
 LOCAL_SRC_FILES := main.cpp \
     video_player.cpp \
     util.cpp \
-	$(LOCAL_LIBYUV_DIR)/yuv_util.cpp
+	$(LOCAL_LIBYUV_DIR)/yuv_util.cpp \
+	$(LOCAL_LIBYUV_DIR)/yuv_jni.cpp
 
 LOCAL_CFLAGS := -D__STDC_CONSTANT_MACROS
 

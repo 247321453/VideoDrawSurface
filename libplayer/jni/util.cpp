@@ -11,6 +11,11 @@ extern "C" {
 #include "util.h"
 #include "debug.h"
 
+int av_frame_to_jpeg(AVFrame* frame,uint8_t * jpeg, int q){
+    //TODO
+    return 0;
+}
+
 int av_get_rotation(AVStream *st) {
     AVDictionaryEntry *rotate_tag = av_dict_get(st->metadata, "rotate", NULL, 0);
     uint8_t *dmtx = av_stream_get_side_data(st, AV_PKT_DATA_DISPLAYMATRIX, NULL);
@@ -74,7 +79,17 @@ int av_frame_scale(AVFrame *src, AVFrame *dst, int dst_width, int dst_height) {
             dst_width, dst_height, libyuv::kFilterBox
     );
 }
-
+/**
+ *
+ * @param src
+ * @param rotation
+ * @param left
+ * @param top
+ * @param dst_width 旋转之前的宽
+ * @param dst_height 旋转之前的高
+ * @param dst
+ * @return
+ */
 int av_frame_rotate_crop(AVFrame *src, int rotation,
                          int left, int top, int dst_width, int dst_height, AVFrame *dst) {
     libyuv::RotationMode mode;

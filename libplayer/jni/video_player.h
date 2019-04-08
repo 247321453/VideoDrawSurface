@@ -7,6 +7,8 @@
 
 #include <jni.h>
 #include <android/native_window.h>
+#include "util.h"
+#include "debug.h"
 
 extern "C" {
 #include "libavcodec/avcodec.h"
@@ -16,6 +18,133 @@ extern "C" {
 };
 
 namespace kk {
+
+    struct VideoInfo {
+        //视频原始尺寸
+        int video_width;
+        int video_height;
+        int video_rotation;
+        //当前角度
+        int display_rotation;
+        //当前播放尺寸
+        int display_width;
+        int display_height;
+        bool need_scale;
+
+        //原始尺寸的坐标
+        int crop_x;
+        int crop_y;
+        int crop_width;
+        int crop_height;
+
+        int rotate_width;
+        int rotate_height;
+        //
+        int scale_width;
+        int scale_height;
+        bool need_swap_size;
+    };
+
+    static void
+    initVideoSize(VideoInfo *size, int dst_width, int dst_height, int dst_rotation, bool stretch) {
+        ALOGD("video:rotation=%d, width=%d,height=%d", size->video_rotation, size->video_width,
+              size->video_height);
+        size->display_rotation = size->video_rotation;
+        //按照比例自动旋转
+        if (dst_rotation > 0) {
+            size->display_rotation = (size->display_rotation + dst_rotation) % 4; // 0-3
+            ALOGD("has pre rotate: pre=%d, now=%d", dst_rotation, size->display_rotation);
+        }
+        bool need_swap_size =
+                size->display_rotation == ROTATION_90 || size->display_rotation == ROTATION_270;
+        if (need_swap_size) {
+            size->rotate_width = size->video_height;
+            size->rotate_height = size->video_width;
+        } else {
+            size->rotate_width = size->video_width;
+            size->rotate_height = size->video_height;
+        }
+        //旋转之后的
+        size->display_width = size->rotate_width;
+        size->display_height = size->rotate_height;
+        size->crop_x = 0;
+        size->crop_y = 0;
+        size->crop_width = size->video_width;
+        size->crop_height = size->video_height;
+        size->scale_width = dst_width;
+        size->scale_height = dst_height;
+
+        int src_width = size->display_width;
+        int src_height = size->display_height;
+        if (dst_width > 0 && dst_height > 0) {
+            //基于旋转后的宽高去计算缩放，裁剪
+            if (dst_width == src_width && dst_height == src_height) {
+                size->need_scale = false;
+                //宽高一样，不需要裁剪，不需要缩放
+                ALOGD("size is same, don't scale and crop");
+            } else {
+                //默认
+                size->need_scale = true;
+                if (!stretch) {
+                    if ((((float) dst_width / (float) dst_height) ==
+                         ((float) src_width / (float) src_height))) {
+                        //一样的比例，不需要裁剪，直接缩放
+                        ALOGD("don't crop");
+                    } else {
+                        //目标的宽和原始比例的宽一样
+                        int w1 = src_width;//540/360*640=960
+                        int h1 = (int) round(
+                                (float) w1 / (float) dst_width * (float) dst_height);
+                        //目标的高和原始比例的高一样
+                        int h2 = src_height;//960/640*360=540
+                        int w2 = (int) round(h2 / (float) dst_height * (float) dst_width);
+
+                        if (h1 < src_height) {
+                            //裁剪的高度小于原始高度，进行裁剪
+                            size->crop_x = 0;
+                            size->crop_y =
+                                    (src_height - h1) / 4 * 2;//不能单数 26/2=13  26/4*2=12
+                            size->crop_width = w1;
+                            size->crop_height = h1;
+                            ALOGD("need crop %d,%d,%d,%d", size->crop_x, size->crop_y,
+                                  size->crop_width,
+                                  size->crop_height);
+                        } else if (w2 < src_width) {
+                            //裁剪的宽度小于原始宽度，进行裁剪
+                            //宽度比目标宽
+                            size->crop_x = (src_width - w2) / 4 * 2;
+                            size->crop_y = 0;
+                            size->crop_width = w2;
+                            size->crop_height = h2;
+                            ALOGD("need crop %d,%d,%d,%d", size->crop_x, size->crop_y,
+                                  size->crop_width,
+                                  size->crop_height);
+                        } else {
+                            //
+                        }
+                    }
+                }
+            }
+        } else {
+            size->need_scale = false;
+        }
+//        if (need_swap_size) {
+//            //上门是基于旋转后计算的，需要交换
+//            int tmp = size->crop_x;
+//            size->crop_x = size->crop_y;
+//            size->crop_y = tmp;
+//            tmp = size->crop_width;
+//            size->crop_width = size->crop_height;
+//            size->crop_height = tmp;
+//            ALOGD("swap crop %d,%d %dx%d", size->crop_x, size->crop_y, size->crop_width,
+//                  size->crop_height);
+//        }
+        if (size->need_scale) {
+            size->display_width = size->scale_width;
+            size->display_height = size->scale_height;
+        }
+    }
+
     class VideoPlayer {
     public:
         VideoPlayer();
@@ -37,12 +166,8 @@ namespace kk {
 
         void SetDataSource(const char *path) {
             Release(false);
+            ResetInfo(&Info);
             mVideoStream = -1;
-            mVideoHeight = 0;
-            mVideoWidth = 0;
-            mRotation = 0;
-            mVideoCurDuration = 0;
-            mVideoAllDuration = 0;
             mPreLoad = false;
             mFileName = path;
         }
@@ -72,16 +197,16 @@ namespace kk {
             return mVideoAllDuration;
         }
 
-        int GetVideoWidth() {
-            return mVideoWidth;
+        uint8_t *GetVideoLastFrame() {
+            return pVideoYuv;
         }
 
-        int GetVideoHeight() {
-            return mVideoHeight;
+        int GetVideoLastLength() {
+            return pVideoYuvLen;
         }
 
-        int GetVideoRotation() {
-            return mVideoRotation;
+        VideoInfo GetVideoInfo() {
+            return Info;
         }
 
         bool IsPlaying() {
@@ -100,34 +225,14 @@ namespace kk {
 
         int mVideoStream = -1;
         // 用户需要的尺寸
+        //拉伸
+        bool mStretchMode = false;
         int mPreviewWidth = 0;
         int mPreviewHeight = 0;
-        //拉伸
-        bool mStretchMode = 0;
-        int mRotateWidth = 0;
-        int mRotateHeight = 0;
-        //视频原始尺寸
-        int mVideoWidth = 0;
-        int mVideoHeight = 0;
-        int mVideoRotation = 0;
-        int mRotation = 0;
-        int mDisplayWidth = 0;
-        int mDisplayHeight = 0;
         int mPreRotation = 0;
-        bool mNeedScaleCrop = false;
 
-        //原始尺寸的坐标
-        int mCropLeft;
-        int mCropTop;
-        int mCropWidth;
-        int mCropHeight;
+        VideoInfo Info;
 
-        //
-        int mScaleWidth;
-        int mScaleHeight;
-
-        double mVideoCurDuration;
-        double mVideoAllDuration;
         bool mNeedNv21Data = false;
         ANativeWindow *pNativeWindow = nullptr;
         AVFormatContext *pFormatCtx = nullptr;
@@ -136,25 +241,59 @@ namespace kk {
         AVFrame *pFrameRGBA = nullptr;
         AVFrame *pFrameNv21 = nullptr;
         AVFrame *pFrame = nullptr;
-        AVFrame *pRotateFrame = nullptr;
+        AVFrame *pRotateCropFrame = nullptr;
         AVFrame *pScaleFrame = nullptr;
         AVRational pTimeBase;
         uint8_t *pScaleBuf = nullptr;
-        uint8_t *pRotateBuf = nullptr;
+        uint8_t *pRotateCropBuf = nullptr;
         uint8_t *pRgbaBuf = nullptr;
         uint8_t *pNv21Buf = nullptr;
+        //原始i420数据
+        uint8_t *pVideoYuv = nullptr;
+        int pVideoYuvLen = -1;
         struct SwsContext *pRGBASwsCtx = nullptr;
         struct SwsContext *pNv21SwsCtx = nullptr;
-
-        bool mSoftMode;
 
         jmethodID mCallBackId = nullptr;
         const char *mFileName = nullptr;
 
-        void initSize();
+        double mVideoCurDuration = 0;
+        double mVideoAllDuration = 0;
 
         int initData();
+
+        void ResetInfo(VideoInfo *info) {
+            mStretchMode = false;
+            mPreviewWidth = 0;
+            mPreviewHeight = 0;
+            mPreRotation = 0;
+            mVideoCurDuration = 0;
+            mVideoAllDuration = 0;
+            //视频原始尺寸
+            info->video_width = 0;
+            info->video_height = 0;
+            info->video_rotation = ROTATION_0;
+            //当前角度
+            info->display_rotation = 0;
+            //当前播放尺寸
+            info->display_width = 0;
+            info->display_height = 0;
+            info->need_scale = false;
+
+            //原始尺寸的坐标
+            info->crop_x = 0;
+            info->crop_y = 0;
+            info->crop_width = 0;
+            info->crop_height = 0;
+
+            //
+            info->scale_width = 0;
+            info->scale_height = 0;
+            info->rotate_width = 0;
+            info->rotate_height = 0;
+        }
     };
+
 }
 
 #endif //FFMPEGNATIVEWINDOW_FFMPEG_H
