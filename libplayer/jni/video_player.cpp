@@ -98,6 +98,15 @@ void VideoPlayer::Close() {
 }
 
 void VideoPlayer::Release(bool resize) {
+    if (pRGBASwsCtx != nullptr) {
+        av_free(pRGBASwsCtx);
+        pRGBASwsCtx = nullptr;
+    }
+    if (pNv21SwsCtx != nullptr) {
+        av_free(pNv21SwsCtx);
+        pNv21SwsCtx = nullptr;
+    }
+
     if (pTakeYuvBuf != nullptr) {
         free(pTakeYuvBuf);
         pVideoYuvLen = -1;
@@ -134,14 +143,6 @@ void VideoPlayer::Release(bool resize) {
     if (pFrameNv21 != nullptr) {
         av_free(pFrameNv21);
         pFrameNv21 = nullptr;
-    }
-    if (pRGBASwsCtx != nullptr) {
-        av_free(pRGBASwsCtx);
-        pRGBASwsCtx = nullptr;
-    }
-    if (pNv21SwsCtx != nullptr) {
-        av_free(pNv21SwsCtx);
-        pNv21SwsCtx = nullptr;
     }
     if (pFrame != nullptr) {
         av_free(pFrame);

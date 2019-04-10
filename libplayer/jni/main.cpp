@@ -27,10 +27,6 @@ short	S
 int	I
 数组	[元素类型签名
  */
-jlong jni_create_player(JNIEnv *env, jclass) {
-    kk::VideoPlayer *player = new kk::VideoPlayer;
-    return (jlong) player;
-}
 
 void
 jni_player_set_size(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height,
@@ -136,6 +132,11 @@ void jni_player_stop(JNIEnv *env, jobject obj, jlong ptr) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         player->Stop();
     }
+}
+
+jlong jni_create_player(JNIEnv *env, jclass) {
+    kk::VideoPlayer *player = new kk::VideoPlayer;
+    return (jlong) player;
 }
 
 void jni_player_close(JNIEnv *env, jobject obj, jlong ptr) {

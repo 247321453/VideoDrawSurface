@@ -164,16 +164,12 @@ public class VideoPlayer implements Closeable {
         native_stop(nativePtr);
     }
 
-    public void resume() {
-    }
-
-    public void pause() {
-    }
-
     @Override
     public void close() {
+        stop();
         closeThread();
         native_close(nativePtr);
+        nativePtr = 0;
     }
 
     public int seek(double ms) {
