@@ -167,8 +167,14 @@ public class VideoPlayer implements Closeable {
     @Override
     public void close() {
         stop();
-        closeThread();
-        native_close(nativePtr);
+        final long ptr = nativePtr;
+        post(new Runnable() {
+            @Override
+            public void run() {
+                native_close(ptr);
+                closeThread();
+            }
+        });
         nativePtr = 0;
     }
 
