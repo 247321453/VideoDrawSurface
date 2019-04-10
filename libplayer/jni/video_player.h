@@ -21,9 +21,9 @@ namespace kk {
 
     struct VideoInfo {
         //视频原始尺寸
-        int video_width;
-        int video_height;
-        int video_rotation = ROTATION_0;
+        int src_width;
+        int src_height;
+        int src_rotation = ROTATION_0;
         //当前角度
         int display_rotation;
         //当前播放尺寸
@@ -48,24 +48,24 @@ namespace kk {
 
     static void
     initVideoSize(VideoInfo *size, int dst_width, int dst_height, int dst_rotation, bool stretch) {
-        ALOGD("video:rotation=%d, width=%d,height=%d", size->video_rotation, size->video_width,
-              size->video_height);
+        ALOGD("video:rotation=%d, width=%d,height=%d", size->src_rotation, size->src_width,
+              size->src_height);
         //按照比例自动旋转
-        int rotation = size->video_rotation;
+        int rotation = size->src_rotation;
         if (dst_rotation > 0) {
             rotation = (rotation + dst_rotation) % 4; // 0-3
             ALOGD("has pre rotate: pre=%d, now=%d", dst_rotation, rotation);
         }
         size->need_swap_size = (rotation == ROTATION_90 || rotation == ROTATION_270);
         if (size->need_swap_size) {
-            size->rotate_width = size->video_height;
-            size->rotate_height = size->video_width;
+            size->rotate_width = size->src_height;
+            size->rotate_height = size->src_width;
             ALOGD("swap size: pre=%dx%d, now=%dx%d",
-                  size->video_width, size->video_height,
+                  size->src_width, size->src_height,
                   size->rotate_width, size->rotate_height);
         } else {
-            size->rotate_width = size->video_width;
-            size->rotate_height = size->video_height;
+            size->rotate_width = size->src_width;
+            size->rotate_height = size->src_height;
         }
         size->display_rotation = rotation;
         //旋转之后的
@@ -283,9 +283,9 @@ namespace kk {
             mVideoCurDuration = 0;
             mVideoAllDuration = 0;
             //视频原始尺寸
-            info->video_width = 0;
-            info->video_height = 0;
-            info->video_rotation = ROTATION_0;
+            info->src_width = 0;
+            info->src_height = 0;
+            info->src_rotation = ROTATION_0;
             //当前角度
             info->display_rotation = 0;
             //当前播放尺寸

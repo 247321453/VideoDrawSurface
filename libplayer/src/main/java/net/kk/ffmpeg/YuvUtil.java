@@ -19,25 +19,37 @@ public class YuvUtil {
      * @param width  图片的宽
      * @param height 图片的高
      */
-    static native int i420ToArgb(byte[] i420Data, int width, int height, byte[] argbDst);
+    public static native int i420ToArgb(byte[] i420Data, int width, int height, byte[] argbDst);
 
     /**
      * @param width  图片的宽
      * @param height 图片的高
      */
-    static native int nv21ToArgb(byte[] nv21Data, int width, int height, byte[] argbData);
+    public static native int nv21ToArgb(byte[] nv21Data, int width, int height, byte[] argbData);
 
     /**
      * @param width  图片的宽
      * @param height 图片的高
      */
-    static native int argbToI420(byte[] rgbSrc, int width, int height, byte[] i420Dst);
+    public static native int argbToI420(byte[] rgbSrc, int width, int height, byte[] i420Dst);
 
     /**
      * @param width  图片的宽
      * @param height 图片的高
      */
-    static native int argbToNv21(byte[] rgbSrc, int width, int height, byte[] nv21Data);
+    public static native int rgbaToI420(byte[] rgbSrc, int width, int height, byte[] i420Dst);
+
+    /**
+     * @param width  图片的宽
+     * @param height 图片的高
+     */
+    public static native int argbToNv21(byte[] rgbSrc, int width, int height, byte[] nv21Data);
+
+    /**
+     * @param width  图片的宽
+     * @param height 图片的高
+     */
+    public static native int rgbaToNv21(byte[] rgbSrc, int width, int height, byte[] i420Dst);
 
     /**
      * 将I420转化为NV21
@@ -47,7 +59,7 @@ public class YuvUtil {
      * @param i420Src 原始I420数据
      * @param nv21Src 转化后的NV21数据
      **/
-    static native int i420ToNv21(byte[] i420Src, int width, int height, byte[] nv21Src);
+    public static native int i420ToNv21(byte[] i420Src, int width, int height, byte[] nv21Src);
 
     /**
      * YUV数据的镜像
@@ -57,7 +69,7 @@ public class YuvUtil {
      * @param height 原始的高
      * @param dst    输出数据
      **/
-    static native int i420Mirror(byte[] src, int width, int height, byte[] dst);
+    public static native int i420Mirror(byte[] src, int width, int height, byte[] dst);
 
 
     /**
@@ -69,8 +81,11 @@ public class YuvUtil {
      * @param rotation 0-3
      * @see Surface#ROTATION_0, Surface#ROTATION_90, Surface#ROTATION_180, Surface#ROTATION_270
      **/
-    static native int i420RotateWithCrop(byte[] src, int width, int height, int rotation,
-                                         byte[] dst, int crop_x, int crop_y, int dst_width, int dst_height);
+    public static native int i420RotateWithCrop(byte[] src, int width, int height, int rotation,
+                                                byte[] dst, int crop_x, int crop_y, int dst_width, int dst_height);
+
+    public static native int i420RotateWithCropEx(byte[] src, int width, int height, int rotation,
+                                                  byte[] dst, int dst_width, int dst_height, int dst_rotation, boolean stretch);
 
     /**
      * 将NV21转化为I420
@@ -80,7 +95,7 @@ public class YuvUtil {
      * @param i420Src 原始NV21数据
      * @param nv21Src 转化后的I420数据
      **/
-    static native int nv21ToI420(byte[] i420Src, int width, int height, byte[] nv21Src);
+    public static native int nv21ToI420(byte[] i420Src, int width, int height, byte[] nv21Src);
 
     /**
      * i420数据的缩放
@@ -93,6 +108,12 @@ public class YuvUtil {
      * @param dst_height 输出的高
      * @param mode       压缩模式。这里为0，1，2，3 速度由快到慢，质量由低到高，一般用0就好了，因为0的速度最快
      **/
-    static native int i420Scale(byte[] src, int width, int height, byte[] dst, int dst_width, int dst_height, int mode);
+    public static native int i420Scale(byte[] src, int width, int height, byte[] dst, int dst_width, int dst_height, int mode);
 
+
+    public static native int i420DrawSurface(Surface surface, byte[] i420, int width, int height);
+
+    public static native int nv21DrawSurface(Surface surface, byte[] nv21, int width, int height);
+
+    public static native int rgbaDrawSurface(Surface surface, byte[] rgba, int width, int height);
 }

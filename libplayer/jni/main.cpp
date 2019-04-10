@@ -9,6 +9,7 @@
 
 #include "yuv_util.h"
 #include "yuv_jni.h"
+#include "yuv_draw.h"
 #include "util.h"
 
 #define JNI_CLASS_NAME "net/kk/ffmpeg/VideoPlayer"
@@ -44,7 +45,7 @@ jni_player_set_size(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height
 jint jni_player_get_width(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        return player->GetVideoInfo().video_width;
+        return player->GetVideoInfo().src_width;
     }
     return -1;
 }
@@ -52,7 +53,7 @@ jint jni_player_get_width(JNIEnv *env, jobject obj, jlong ptr) {
 jint jni_player_get_height(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        return player->GetVideoInfo().video_height;
+        return player->GetVideoInfo().src_height;
     }
     return -1;
 }
@@ -60,7 +61,7 @@ jint jni_player_get_height(JNIEnv *env, jobject obj, jlong ptr) {
 jint jni_player_get_rotate(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        return player->GetVideoInfo().video_rotation;
+        return player->GetVideoInfo().src_rotation;
     }
     return -1;
 }
@@ -160,7 +161,9 @@ jint jni_player_seek(JNIEnv *env, jobject obj, jlong ptr, jdouble time) {
     return -1;
 }
 
-jint jni_player_take_image(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height, jint rotation, jboolean mirror){
+jint
+jni_player_take_image(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height, jint rotation,
+                      jboolean mirror) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         return player->TakeImage(env, obj, width, height, rotation, mirror);
@@ -184,60 +187,6 @@ double jni_player_get_video_time(JNIEnv *env, jobject, jlong ptr) {
     return 0;
 }
 
-jint jni_player_get_last_argb_image(JNIEnv *env, jobject, jlong ptr, jbyteArray arr, jint dst_width,
-                                    jint dst_height, jint dst_rotation) {
-    if (ptr != 0) {
-        kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        kk::VideoInfo info;
-        info.video_rotation = player->GetVideoInfo().video_rotation;
-        info.video_width = player->GetVideoInfo().video_width;
-        info.video_height = player->GetVideoInfo().video_height;
-        kk::initVideoSize(&info, dst_width, dst_height, dst_rotation, false);
-//
-        uint8_t *rotate_data = new uint8_t[info.crop_width * info.crop_height * 3 / 2];
-        int ret = 0;
-        uint8_t *scale_data = nullptr;
-        if (info.need_scale) {
-            scale_data = new uint8_t[info.scale_width * info.scale_height * 3 / 2];
-        }
-//        //旋转，裁剪
-//        int w, h;
-//        if (mRotation == ROTATION_90 || mRotation == ROTATION_270) {
-//            w = mCropHeight;
-//            h = mCropWidth;
-//            ret = i420_rotate_crop(data, mVideoWidth, mVideoHeight, mRotation,
-//                                   mCropTop, mCropLeft, mCropHeight, mCropWidth,
-//                                   rotate_data);
-//        } else {
-//            w = mCropWidth;
-//            h = mCropHeight;
-//            ret = i420_rotate_crop(data, mVideoWidth, mVideoHeight, mRotation,
-//                                   mCropLeft, mCropTop, mCropWidth, mCropHeight,
-//                                   rotate_data);
-//        }
-//        //argb
-//        if (ret == 0) {
-//            //缩放
-//            if (scale_data != nullptr) {
-//                ret = i420_scale(rotate_data, w, h, scale_data, mScaleWidth, mScaleHeight, 3);
-//                if (ret == 0) {
-//                    ret = i420_to_rgba(scale_data, mScaleWidth, mScaleHeight, rgba_data);
-//                }
-//            } else {
-//                ret = i420_to_rgba(rotate_data, w, h, rgba_data);
-//            }
-//        }
-        free(rotate_data);
-        if (scale_data != nullptr) {
-            free(scale_data);
-        }
-//        //设置到数组
-//        env->SetByteArrayRegion(arr, 0, argb_len, (jbyte*)rgba_data);
-//        free(rgba_data);
-        return ret;
-    }
-    return -1;
-}
 
 jint jni_player_get_last_frame(JNIEnv *env, jobject, jlong ptr, jbyteArray arr) {
     if (ptr != 0) {
@@ -254,54 +203,121 @@ void jni_ffmpeg_init(JNIEnv *env, jclass) {
     av_register_all();
 }
 
+jint jni_i420_rotate_crop_ex(JNIEnv *env, jclass,
+                             jbyteArray src_i420_data,
+                             jint src_width, jint src_height, jint src_rotation,
+                             jbyteArray dst_i420_data,
+                             jint dst_width, jint dst_height, jint dst_rotation,
+                             jboolean stretch) {
+    jbyte *src = env->GetByteArrayElements(src_i420_data, NULL);
+    jbyte *dst = env->GetByteArrayElements(dst_i420_data, NULL);
+    kk::VideoInfo info;
+    info.src_width = src_width;
+    info.src_height = src_height;
+    info.src_rotation = src_rotation;
+    kk::initVideoSize(&info, dst_width, dst_height, dst_rotation, stretch);
+
+    int crop_x, crop_y, crop_w, crop_h;
+    if (info.need_swap_size) {
+        if (info.need_scale) {
+            crop_x = info.crop_y;
+            crop_y = info.crop_x;
+            crop_w = info.crop_height;
+            crop_h = info.crop_width;
+        } else {
+            crop_x = 0;
+            crop_y = 0;
+            crop_w = info.rotate_height;
+            crop_h = info.rotate_width;
+        }
+    } else {
+        if (info.need_scale) {
+            crop_x = info.crop_x;
+            crop_y = info.crop_y;
+            crop_w = info.crop_width;
+            crop_h = info.crop_height;
+        } else {
+            crop_x = 0;
+            crop_y = 0;
+            crop_w = info.rotate_width;
+            crop_h = info.rotate_height;
+        }
+    }
+    int ret;
+    if (info.need_scale) {
+        uint8_t *r_data = new uint8_t[crop_w * crop_h * 3 / 2];
+        ret = i420_rotate_crop((uint8_t *) src, src_width, src_height, info.display_rotation,
+                               crop_x, crop_y, crop_w, crop_h, r_data);
+        if (ret == 0) {
+            ret = i420_scale(r_data, crop_x, crop_h, (uint8_t *) dst, info.display_width,
+                             info.display_height, 3);
+        }
+        free(r_data);
+    } else {
+        ret = i420_rotate_crop((uint8_t *) src, src_width, src_height, info.display_rotation,
+                               crop_x, crop_y, crop_w, crop_h, (uint8_t *) dst);
+    }
+    env->ReleaseByteArrayElements(src_i420_data, src, 0);
+    env->ReleaseByteArrayElements(dst_i420_data, dst, 0);
+    return ret;
+}
+
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env;
     vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
     jclass video_player = (jclass) env->NewGlobalRef(env->FindClass(JNI_CLASS_NAME));
     static JNINativeMethod methods[] = {
-            {"native_create",              "()J",                        (void *) jni_create_player},
-            {"native_set_surface",         "(JLandroid/view/Surface;)V", (void *) jni_player_set_surface},
-            {"native_set_callback",        "(JZ)V",                      (void *) jni_player_set_callback},
-            {"native_set_size",            "(JIIZI)V",                   (void *) jni_player_set_size},
-            {"native_get_width",           "(J)I",                       (void *) jni_player_get_width},
-            {"native_get_height",          "(J)I",                       (void *) jni_player_get_height},
-            {"native_get_rotate",          "(J)I",                       (void *) jni_player_get_rotate},
-            {"native_set_data_source",     "(JLjava/lang/String;)V",     (void *) jni_set_data_source},
-            {"native_play",                "(J)I",                       (void *) jni_player_play},
-            {"native_preload",             "(J)I",                       (void *) jni_player_preload},
-            {"native_stop",                "(J)V",                       (void *) jni_player_stop},
-            {"native_close",               "(J)V",                       (void *) jni_player_close},
-            {"native_release",             "(J)V",                       (void *) jni_player_release},
-            {"native_seek",                "(JD)I",                      (void *) jni_player_seek},
-            {"native_take_image",                "(JIIIZ)I",                      (void *) jni_player_take_image},
-            {"native_get_cur_time",        "(J)D",                       (void *) jni_player_get_play_time},
-            {"native_get_all_time",        "(J)D",                       (void *) jni_player_get_video_time},
-            {"native_get_status",          "(J)I",                       (void *) jni_player_get_status},
-            {"native_init_ffmpeg",         "()V",                        (void *) jni_ffmpeg_init},
-            {"native_get_last_frame",      "(J[B)I",                     (void *) jni_player_get_last_frame},
-            {"native_get_last_argb_image", "(J[BIII)I",                  (void *) jni_player_get_last_argb_image},
+            {"native_create",          "()J",                        (void *) jni_create_player},
+            {"native_set_surface",     "(JLandroid/view/Surface;)V", (void *) jni_player_set_surface},
+            {"native_set_callback",    "(JZ)V",                      (void *) jni_player_set_callback},
+            {"native_set_size",        "(JIIZI)V",                   (void *) jni_player_set_size},
+            {"native_get_width",       "(J)I",                       (void *) jni_player_get_width},
+            {"native_get_height",      "(J)I",                       (void *) jni_player_get_height},
+            {"native_get_rotate",      "(J)I",                       (void *) jni_player_get_rotate},
+            {"native_set_data_source", "(JLjava/lang/String;)V",     (void *) jni_set_data_source},
+            {"native_play",            "(J)I",                       (void *) jni_player_play},
+            {"native_preload",         "(J)I",                       (void *) jni_player_preload},
+            {"native_stop",            "(J)V",                       (void *) jni_player_stop},
+            {"native_close",           "(J)V",                       (void *) jni_player_close},
+            {"native_release",         "(J)V",                       (void *) jni_player_release},
+            {"native_seek",            "(JD)I",                      (void *) jni_player_seek},
+            {"native_take_image",      "(JIIIZ)I",                   (void *) jni_player_take_image},
+            {"native_get_cur_time",    "(J)D",                       (void *) jni_player_get_play_time},
+            {"native_get_all_time",    "(J)D",                       (void *) jni_player_get_video_time},
+            {"native_get_status",      "(J)I",                       (void *) jni_player_get_status},
+            {"native_init_ffmpeg",     "()V",                        (void *) jni_ffmpeg_init},
+            {"native_get_last_frame",  "(J[B)I",                     (void *) jni_player_get_last_frame},
             //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
-    if (env->RegisterNatives(video_player, methods, 21) < 0) {
+    if (env->RegisterNatives(video_player, methods, 20) < 0) {
         return JNI_ERR;
     }
     jclass yuv_util = (jclass) env->NewGlobalRef(env->FindClass(JNI_YUV_UTIL_CLASS_NAME));
     static JNINativeMethod yuv_methods[] = {
-            {"i420ToArgb",         "([BII[B)I",      (void *) jni_i420_to_argb},
-            {"nv21ToArgb",         "([BII[B)I",      (void *) jni_nv21_to_argb},
-            {"argbToI420",         "([BII[B)I",      (void *) jni_argb_to_i420},
+            {"i420ToArgb",         "([BII[B)I",                     (void *) jni_i420_to_argb},
+            {"nv21ToArgb",         "([BII[B)I",                     (void *) jni_nv21_to_argb},
+            {"argbToI420",         "([BII[B)I",                     (void *) jni_argb_to_i420},
 
-            {"argbToNv21",         "([BII[B)I",      (void *) jni_argb_to_nv21},
-            {"i420ToNv21",         "([BII[B)I",      (void *) jni_i420_to_nv21},
-            {"i420Mirror",         "([BII[B)I",      (void *) jni_i420_mirror},
+            {"argbToNv21",         "([BII[B)I",                     (void *) jni_argb_to_nv21},
+            {"i420ToNv21",         "([BII[B)I",                     (void *) jni_i420_to_nv21},
+            {"i420Mirror",         "([BII[B)I",                     (void *) jni_i420_mirror},
 
-            {"i420RotateWithCrop", "([BIII[BIIII)I", (void *) jni_i420_rotate_crop},
-            {"nv21ToI420",         "([BII[B)I",      (void *) jni_nv21_to_i420},
-            {"i420Scale",          "([BII[BIII)I",   (void *) jni_i420_scale},
+            {"i420RotateWithCrop", "([BIII[BIIII)I",                (void *) jni_i420_rotate_crop},
+            {"i420RotateWithCropEx", "([BIII[BIIIZ)I",                (void *) jni_i420_rotate_crop_ex},
+            {"nv21ToI420",         "([BII[B)I",                     (void *) jni_nv21_to_i420},
+            {"i420Scale",          "([BII[BIII)I",                  (void *) jni_i420_scale},
+
+            {"rgbaToI420",         "([BII[B)I",                     (void *) jni_rgba_to_i420},
+            {"rgbaToNv21",         "([BII[B)I",                     (void *) jni_rgba_to_nv21},
+
+            {"rgbaDrawSurface",    "(Landroid/view/Surface;[BII)I", (void *) jni_rgba_draw_surface},
+
+            {"i420DrawSurface",    "(Landroid/view/Surface;[BII)I", (void *) jni_i420_draw_surface},
+            {"nv21DrawSurface",    "(Landroid/view/Surface;[BII)I", (void *) jni_nv21_draw_surface},
     };
 
-    if (env->RegisterNatives(yuv_util, yuv_methods, 9) < 0) {
+    if (env->RegisterNatives(yuv_util, yuv_methods, 14) < 0) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;

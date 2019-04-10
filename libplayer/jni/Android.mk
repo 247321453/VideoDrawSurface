@@ -82,6 +82,7 @@ LOCAL_SRC_FILES := main.cpp \
     video_player.cpp \
     util.cpp \
 	$(LOCAL_LIBYUV_DIR)/yuv_util.cpp \
+	$(LOCAL_LIBYUV_DIR)/yuv_draw.cpp \
 	$(LOCAL_LIBYUV_DIR)/yuv_jni.cpp
 
 LOCAL_CFLAGS := -D__STDC_CONSTANT_MACROS

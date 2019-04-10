@@ -66,12 +66,12 @@ int VideoPlayer::PreLoad() {
         ALOGD("video:all time=%f", mVideoAllDuration);
     }
     //角度，宽高
-    Info.video_rotation = av_get_rotation(steam);
-    ALOGD("video_rotation=%d", Info.video_rotation);
+    Info.src_rotation = av_get_rotation(steam);
+    ALOGD("src_rotation=%d", Info.src_rotation);
     pCodecCtx = avcodec_alloc_context3(NULL);
     avcodec_parameters_to_context(pCodecCtx, steam->codecpar);
-    Info.video_width = pCodecCtx->width;
-    Info.video_height = pCodecCtx->height;
+    Info.src_width = pCodecCtx->width;
+    Info.src_height = pCodecCtx->height;
     ALOGD("code::default");
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
     if (pCodec == NULL) {
@@ -162,8 +162,13 @@ void VideoPlayer::Release(bool resize) {
 int VideoPlayer::Seek(double ms) {
     if (mPreLoad && pFormatCtx != NULL && mVideoStream != -1) {
         //ms * AV_TIME_BASE / 1000
-        return av_seek_frame(pFormatCtx, mVideoStream, static_cast<int64_t>(ms * AV_TIME_BASE),
+        int ret = av_seek_frame(pFormatCtx, mVideoStream, static_cast<int64_t>(ms * AV_TIME_BASE),
                              AVSEEK_FLAG_BACKWARD);
+
+        if(ret == 0){
+            avcodec_flush_buffers(pCodecCtx);
+        }
+        return ret;
     }
     return -1;
 }
@@ -179,7 +184,7 @@ int VideoPlayer::initData() {
     }
     //存放原始数据
     if (pTakeYuvBuf == nullptr) {
-        pVideoYuvLen = Info.video_width * Info.video_height * 3 / 2;
+        pVideoYuvLen = Info.src_width * Info.src_height * 3 / 2;
         pTakeYuvBuf = new uint8_t[pVideoYuvLen];
     }
     if (Info.display_rotation != ROTATION_0 || Info.need_scale) {
@@ -289,7 +294,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
         }
     }
     ALOGD("src=%dx%d, dst=%dx%d crop %d,%d %dx%d",
-          Info.video_width, Info.video_height,
+          Info.src_width, Info.src_height,
           Info.display_width, Info.display_height,
           crop_x, crop_y, crop_w, crop_h);
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
@@ -403,18 +408,18 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_heig
     if (pTakeYuvBuf != nullptr && mJpegCallBackId != nullptr) {
         //TODO 处理i420得到jpeg数据
         uint8_t *i420 = pTakeYuvBuf;
-        int video_width = Info.video_width;
-        int video_height = Info.video_height;
-        int video_rotation = Info.video_rotation;
+        int video_width = Info.src_width;
+        int video_height = Info.src_height;
+        int video_rotation = Info.src_rotation;
 
         if (dst_rotation < 0) {
             dst_rotation = 0;
             video_rotation = 0;
         }
         VideoInfo info;
-        info.video_width = video_width;
-        info.video_height = video_height;
-        info.video_rotation = video_rotation;
+        info.src_width = video_width;
+        info.src_height = video_height;
+        info.src_rotation = video_rotation;
         initVideoSize(&info, dst_width, dst_height, dst_rotation%4, false);
 
         int ret = 0;
