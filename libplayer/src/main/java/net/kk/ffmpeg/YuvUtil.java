@@ -71,6 +71,10 @@ public class YuvUtil {
      **/
     public static native int i420Mirror(byte[] src, int width, int height, byte[] dst);
 
+    public static int i420Rotate(byte[] src, int width, int height, byte[] dst, int rotation) {
+        return i420RotateWithCrop(src, width, height, rotation, dst, 0, 0, width, height);
+    }
+
 
     /**
      * YUV数据的旋转，裁剪

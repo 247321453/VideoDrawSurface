@@ -247,6 +247,9 @@ public class VideoPlayer implements Closeable {
     }
 
     public void postCallBack(Runnable runnable, String name) {
+        if(mClose){
+            return;
+        }
         checkThread();
         Log.v(TAG, "postCallBack task:" + name);
         if (mCallBackHandler != null) {
