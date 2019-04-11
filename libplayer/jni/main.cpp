@@ -111,7 +111,7 @@ jint jni_player_preload(JNIEnv *env, jobject obj, jlong ptr) {
 jint jni_player_play(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        if(player->IsPlaying()){
+        if (player->IsPlaying()) {
             return 1;
         }
         return player->Play(env, obj);
@@ -215,21 +215,26 @@ jint jni_i420_rotate_crop_ex(JNIEnv *env, jclass,
                              jboolean stretch) {
     jbyte *src = env->GetByteArrayElements(src_i420_data, NULL);
     jbyte *dst = env->GetByteArrayElements(dst_i420_data, NULL);
-    kk::VideoInfo info;
+    kk::SizeInfo info;
     info.src_width = src_width;
     info.src_height = src_height;
     info.src_rotation = src_rotation;
-    kk::initVideoSize(&info, dst_width, dst_height, dst_rotation, stretch);
+    kk::initSizeInfo(&info, dst_width, dst_height, dst_rotation, stretch);
 
-    int crop_x = info.crop_x, crop_y = info.crop_y, crop_w = info.crop_width, crop_h = info.crop_height;
     int ret;
+    int crop_x = info.crop_x, crop_y = info.crop_y, crop_w = info.crop_width, crop_h = info.crop_height;
     if (info.need_scale) {
         uint8_t *r_data = new uint8_t[crop_w * crop_h * 3 / 2];
         ret = i420_rotate_crop((uint8_t *) src, src_width, src_height, info.display_rotation,
                                crop_x, crop_y, crop_w, crop_h, r_data);
         if (ret == 0) {
-            ret = i420_scale(r_data, crop_x, crop_h, (uint8_t *) dst, info.display_width,
-                             info.display_height, 3);
+            if (info.display_rotation == ROTATION_90 || info.display_rotation == ROTATION_270) {
+                ret = i420_scale(r_data, crop_h, crop_w, (uint8_t *) dst, info.display_width,
+                                 info.display_height, 3);
+            } else {
+                ret = i420_scale(r_data, crop_x, crop_h, (uint8_t *) dst, info.display_width,
+                                 info.display_height, 3);
+            }
         }
         free(r_data);
     } else {
@@ -274,29 +279,28 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     }
     jclass yuv_util = (jclass) env->NewGlobalRef(env->FindClass(JNI_YUV_UTIL_CLASS_NAME));
     static JNINativeMethod yuv_methods[] = {
-            {"i420ToArgb",         "([BII[B)I",                     (void *) jni_i420_to_argb},
-            {"nv21ToArgb",         "([BII[B)I",                     (void *) jni_nv21_to_argb},
-            {"argbToI420",         "([BII[B)I",                     (void *) jni_argb_to_i420},
+            {"i420ToArgb",           "([BII[B)I",                     (void *) jni_i420_to_argb},
+            {"nv21ToArgb",           "([BII[B)I",                     (void *) jni_nv21_to_argb},
+            {"argbToI420",           "([BII[B)I",                     (void *) jni_argb_to_i420},
 
-            {"argbToNv21",         "([BII[B)I",                     (void *) jni_argb_to_nv21},
-            {"i420ToNv21",         "([BII[B)I",                     (void *) jni_i420_to_nv21},
-            {"i420Mirror",         "([BII[B)I",                     (void *) jni_i420_mirror},
+            {"argbToNv21",           "([BII[B)I",                     (void *) jni_argb_to_nv21},
+            {"i420ToNv21",           "([BII[B)I",                     (void *) jni_i420_to_nv21},
+            {"i420Mirror",           "([BII[B)I",                     (void *) jni_i420_mirror},
 
-            {"i420RotateWithCrop", "([BIII[BIIII)I",                (void *) jni_i420_rotate_crop},
+            {"i420RotateWithCrop",   "([BIII[BIIII)I",                (void *) jni_i420_rotate_crop},
             {"i420RotateWithCropEx", "([BIII[BIIIZ)I",                (void *) jni_i420_rotate_crop_ex},
-            {"nv21ToI420",         "([BII[B)I",                     (void *) jni_nv21_to_i420},
-            {"i420Scale",          "([BII[BIII)I",                  (void *) jni_i420_scale},
+            {"nv21ToI420",           "([BII[B)I",                     (void *) jni_nv21_to_i420},
+            {"i420Scale",            "([BII[BIII)I",                  (void *) jni_i420_scale},
 
-            {"rgbaToI420",         "([BII[B)I",                     (void *) jni_rgba_to_i420},
-            {"rgbaToNv21",         "([BII[B)I",                     (void *) jni_rgba_to_nv21},
+            {"rgbaToI420",           "([BII[B)I",                     (void *) jni_rgba_to_i420},
+            {"rgbaToNv21",           "([BII[B)I",                     (void *) jni_rgba_to_nv21},
 
-            {"rgbaDrawSurface",    "(Landroid/view/Surface;[BII)I", (void *) jni_rgba_draw_surface},
-
-            {"i420DrawSurface",    "(Landroid/view/Surface;[BII)I", (void *) jni_i420_draw_surface},
-            {"nv21DrawSurface",    "(Landroid/view/Surface;[BII)I", (void *) jni_nv21_draw_surface},
+            {"rgbaDrawSurface",      "(Landroid/view/Surface;[BII)I", (void *) jni_rgba_draw_surface},
+            {"i420DrawSurface",      "(Landroid/view/Surface;[BII)I", (void *) jni_i420_draw_surface},
+            {"nv21DrawSurface",      "(Landroid/view/Surface;[BII)I", (void *) jni_nv21_draw_surface},
     };
 
-    if (env->RegisterNatives(yuv_util, yuv_methods, 14) < 0) {
+    if (env->RegisterNatives(yuv_util, yuv_methods, 15) < 0) {
         return JNI_ERR;
     }
     return JNI_VERSION_1_6;

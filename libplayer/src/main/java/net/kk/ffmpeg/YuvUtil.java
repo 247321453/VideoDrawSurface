@@ -7,7 +7,7 @@ public class YuvUtil {
 
     static {
         try {
-            System.loadLibrary("yuv-util");
+            System.loadLibrary("kkplayer");
             sInit = true;
         } catch (Throwable e) {
             e.printStackTrace();
@@ -31,25 +31,25 @@ public class YuvUtil {
      * @param width  图片的宽
      * @param height 图片的高
      */
-    public static native int argbToI420(byte[] rgbSrc, int width, int height, byte[] i420Dst);
+    public static native int argbToI420(byte[] argbSrc, int width, int height, byte[] i420Dst);
 
     /**
      * @param width  图片的宽
      * @param height 图片的高
      */
-    public static native int rgbaToI420(byte[] rgbSrc, int width, int height, byte[] i420Dst);
+    public static native int rgbaToI420(byte[] rgbaSrc, int width, int height, byte[] i420Dst);
 
     /**
      * @param width  图片的宽
      * @param height 图片的高
      */
-    public static native int argbToNv21(byte[] rgbSrc, int width, int height, byte[] nv21Data);
+    public static native int argbToNv21(byte[] argbSrc, int width, int height, byte[] nv21Data);
 
     /**
      * @param width  图片的宽
      * @param height 图片的高
      */
-    public static native int rgbaToNv21(byte[] rgbSrc, int width, int height, byte[] i420Dst);
+    public static native int rgbaToNv21(byte[] rgbaSrc, int width, int height, byte[] i420Dst);
 
     /**
      * 将I420转化为NV21

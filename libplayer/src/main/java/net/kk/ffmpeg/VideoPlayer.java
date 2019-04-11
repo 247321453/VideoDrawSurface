@@ -53,6 +53,7 @@ public class VideoPlayer implements Closeable {
     private double mAllTime;
     private String source;
     private Surface mSurface;
+    private boolean mClose;
 
     public VideoPlayer() {
         nativePtr = native_create();
@@ -95,6 +96,9 @@ public class VideoPlayer implements Closeable {
     }
 
     public void play() {
+        if (mClose) {
+            return;
+        }
         init();
         checkThread();
         Log.d(TAG, "post play");
@@ -133,6 +137,9 @@ public class VideoPlayer implements Closeable {
     }
 
     public void preload(final boolean autoPlay) {
+        if (mClose) {
+            return;
+        }
         init();
         if (isPlaying()) {
             stop();
@@ -162,14 +169,6 @@ public class VideoPlayer implements Closeable {
 
     public void release() {
         native_release(nativePtr);
-    }
-
-    private void closeThread() {
-        if (mPlayThread != null && !mPlayThread.isInterrupted()) {
-            mPlayThread.interrupt();
-        }
-        mPlayThread = null;
-        mPlayHandler = null;
     }
 
     private static final int msg_play = 1;
@@ -265,6 +264,7 @@ public class VideoPlayer implements Closeable {
 
     @Override
     public void close() {
+        mClose = true;
         stop();
         mPlayHandler.sendEmptyMessage(msg_close);
         mPlayThread.quitSafely();

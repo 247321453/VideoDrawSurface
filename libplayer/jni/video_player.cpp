@@ -242,7 +242,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (ret != 0) {
         return ret;
     }
-    initVideoSize(&Info, mPreviewWidth, mPreviewHeight, mPreRotation, mStretchMode);
+    initSizeInfo(&Info, mPreviewWidth, mPreviewHeight, mPreRotation, mStretchMode);
     ret = initData();
     if (ret != 0) {
         return ret;
@@ -288,7 +288,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 //                time = getCurTime();
                 av_frame_to_i420(pFrame, pTakeYuvBuf);
 //                cur = getCurTime();
-//                ALOGD("copy i420 data use time :%ld", (cur - time));
 //                time = cur;
                 mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
 
@@ -394,11 +393,11 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_heig
             dst_rotation = 0;
             video_rotation = 0;
         }
-        VideoInfo info;
+        SizeInfo info;
         info.src_width = video_width;
         info.src_height = video_height;
         info.src_rotation = video_rotation;
-        initVideoSize(&info, dst_width, dst_height, dst_rotation%4, false);
+        initSizeInfo(&info, dst_width, dst_height, dst_rotation % 4, false);
 
         int ret = 0;
         uint8_t *tmpData;
