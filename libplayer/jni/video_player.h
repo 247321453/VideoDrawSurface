@@ -117,6 +117,7 @@ namespace kk {
         AVFrame *pFrameNv21 = nullptr;
         AVFrame *pFrame = nullptr;
         AVFrame *pRotateCropFrame = nullptr;
+
         AVFrame *pScaleFrame = nullptr;
         AVRational pTimeBase;
         uint8_t *pScaleBuf = nullptr;

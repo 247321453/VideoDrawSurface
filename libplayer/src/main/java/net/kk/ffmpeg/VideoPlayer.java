@@ -247,7 +247,7 @@ public class VideoPlayer implements Closeable {
     }
 
     public void postCallBack(Runnable runnable, String name) {
-        if(mClose){
+        if (mClose) {
             return;
         }
         checkThread();

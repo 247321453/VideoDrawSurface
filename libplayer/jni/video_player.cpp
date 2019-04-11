@@ -120,6 +120,7 @@ void VideoPlayer::Release(bool resize) {
         av_free(pScaleFrame);
         pScaleFrame = nullptr;
     }
+
     if (pRotateCropBuf != nullptr) {
         av_free(pRotateCropBuf);
         pRotateCropBuf = nullptr;
@@ -164,9 +165,9 @@ int VideoPlayer::Seek(double ms) {
     if (mPreLoad && pFormatCtx != NULL && mVideoStream != -1) {
         //ms * AV_TIME_BASE / 1000
         int ret = av_seek_frame(pFormatCtx, mVideoStream, static_cast<int64_t>(ms * AV_TIME_BASE),
-                             AVSEEK_FLAG_BACKWARD);
+                                AVSEEK_FLAG_BACKWARD);
 
-        if(ret == 0){
+        if (ret == 0) {
             avcodec_flush_buffers(pCodecCtx);
         }
         return ret;
@@ -258,8 +259,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     int yuvLen = Info.display_width * Info.display_height * 3 / 2;
     size_t y_step = Info.display_width * Info.display_height * sizeof(uint8_t);
 
-    ANativeWindow_setBuffersGeometry(pNativeWindow, Info.display_width, Info.display_height,
-                                     WINDOW_FORMAT_RGBA_8888);
     if (mNeedNv21Data) {
         yuvNv21Data = new jbyte[yuvLen];
         yuvArray = env->NewByteArray(yuvLen);
@@ -273,6 +272,10 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
           Info.src_width, Info.src_height,
           Info.display_width, Info.display_height,
           crop_x, crop_y, crop_w, crop_h);
+    int surface_width = Info.display_width;
+    int surface_height = Info.display_height;
+    ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
+                                     WINDOW_FORMAT_RGBA_8888);
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
         //use the parser to split the data into frames
         //微秒
@@ -320,7 +323,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                 //surface绘制
                 if (pNativeWindow != nullptr) {
                     sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
-                              tmpFrame->linesize, 0, Info.display_height,
+                              tmpFrame->linesize, 0, surface_height,
                               pFrameRGBA->data, pFrameRGBA->linesize);
                     if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
                         uint8_t *dst = (uint8_t *) windowBuffer.bits;
@@ -328,12 +331,10 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                         uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
                         size_t src_stride = (size_t) pFrameRGBA->linesize[0];
                         // 由于window的stride和帧的stride不同,因此需要逐行复制
-                        for (h = 0; h < Info.display_height; h++) {
+                        for (h = 0; h < surface_height; h++) {
                             memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
                         }
                         ANativeWindow_unlockAndPost(pNativeWindow);
-                    } else {
-                        ALOGW("lock surface fail");
                     }
                 }
                 if (mYuvCallBackId != nullptr) {
@@ -433,11 +434,11 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_heig
             h = dst_height;
             tmpData = scaleData;
         }
-        uint8_t * mirrorData = nullptr;
+        uint8_t *mirrorData = nullptr;
         if (ret == 0) {
             int yuvLen = w * h * 3 / 2;
             jbyte *yuvNv21Data = new jbyte[yuvLen];
-            if(mirror){
+            if (mirror) {
                 mirrorData = new uint8_t[yuvLen];
                 i420_mirror(tmpData, w, h, mirrorData);
                 tmpData = mirrorData;
@@ -451,7 +452,7 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_heig
         } else {
             env->CallVoidMethod(obj, mJpegCallBackId, NULL, ret, h);
         }
-        if(mirrorData != nullptr){
+        if (mirrorData != nullptr) {
             free(mirrorData);
         }
         if (scaleData != nullptr) {
