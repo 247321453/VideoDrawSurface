@@ -2,8 +2,11 @@ package net.kk.ffmpeg;
 
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.os.Looper;
+import android.os.Message;
 import android.support.annotation.Keep;
-import android.support.annotation.WorkerThread;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.Surface;
 
 import java.io.Closeable;
@@ -39,13 +42,17 @@ public class VideoPlayer implements Closeable {
         System.loadLibrary("kkplayer");
     }
 
-    private HandlerThread mWorkThread;
-    private Handler mHandler;
+    private static final String TAG = "kkplayer";
+    private HandlerThread mPlayThread;
+    private MyHandler mPlayHandler;
+    private HandlerThread mCallBackThread;
+    private Handler mCallBackHandler;
     private long nativePtr;
     private CallBack mCallBack;
     private double mCurTime;
     private double mAllTime;
     private String source;
+    private Surface mSurface;
 
     public VideoPlayer() {
         nativePtr = native_create();
@@ -68,6 +75,10 @@ public class VideoPlayer implements Closeable {
     }
 
     public void setSurface(Surface surface) {
+        if (mSurface == surface) {
+            return;
+        }
+        mSurface = surface;
         native_set_surface(nativePtr, surface);
     }
 
@@ -76,51 +87,65 @@ public class VideoPlayer implements Closeable {
     }
 
     public void setDataSource(String path) {
-        source = path;
-        native_set_data_source(nativePtr, path);
+        if (!TextUtils.equals(source, path)) {
+            mAllTime = 0;
+            source = path;
+            native_set_data_source(nativePtr, path);
+        }
     }
 
     public void play() {
         init();
-        post(new Runnable() {
-            @Override
-            public void run() {
-                if (mCallBack != null) {
-                    mCallBack.onPlayStart();
-                }
-                int ret = -20;
-                try {
-                    ret = native_play(nativePtr);
-                } catch (Throwable e) {
-                    e.printStackTrace();
-                }
-                if (mCallBack != null) {
-                    mCallBack.onPlayEnd(ret);
-                }
-            }
-        });
+        checkThread();
+        Log.d(TAG, "post play");
+        mPlayHandler.sendEmptyMessage(msg_play);
+    }
+
+    private void playInner() {
+        Log.d(TAG, "playInner");
+        int ret = -30;
+        if (mCallBack != null) {
+            mCallBack.onPlayStart();
+        }
+        try {
+            ret = native_play(nativePtr);
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+        if (mCallBack != null) {
+            mCallBack.onPlayEnd(ret);
+        }
+    }
+
+    private int preLoadInner() {
+        Log.d(TAG, "preLoadInner");
+        int ret = -20;
+        try {
+            ret = native_preload(nativePtr);
+            mAllTime = getPlayTime();
+        } catch (Throwable e) {
+            e.printStackTrace();
+        }
+        if (mCallBack != null) {
+            mCallBack.onVideoPreLoad(ret, getVideoWidth(), getVideoHeight(), getVideoRotate(), getVideoTime());
+        }
+        return ret;
     }
 
     public void preload(final boolean autoPlay) {
         init();
-        post(new Runnable() {
+        if (isPlaying()) {
+            stop();
+        }
+        postPlayer(new Runnable() {
             @Override
             public void run() {
-                int ret = -20;
-                try {
-                    ret = native_preload(nativePtr);
-                    mAllTime = getPlayTime();
-                } catch (Throwable e) {
-                    e.printStackTrace();
-                }
-                if (mCallBack != null) {
-                    mCallBack.onVideoPreLoad(ret, getVideoWidth(), getVideoHeight(), getVideoRotate(), getVideoTime());
-                }
+                int ret = preLoadInner();
                 if (ret == 0 && autoPlay) {
-                    play();
+                    playInner();
                 }
             }
-        });
+        }, "preload");
     }
 
     public int getVideoWidth() {
@@ -140,24 +165,98 @@ public class VideoPlayer implements Closeable {
     }
 
     private void closeThread() {
-        if (mWorkThread != null && !mWorkThread.isInterrupted()) {
-            mWorkThread.interrupt();
+        if (mPlayThread != null && !mPlayThread.isInterrupted()) {
+            mPlayThread.interrupt();
         }
-        mWorkThread = null;
-        mHandler = null;
+        mPlayThread = null;
+        mPlayHandler = null;
+    }
+
+    private static final int msg_play = 1;
+    private static final int msg_close = 2;
+
+    private class MyHandler extends Handler {
+        public MyHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            switch (msg.what) {
+                case msg_play:
+                    if (!isPlaying()) {
+                        int ret;
+                        if (mAllTime <= 0) {
+                            Log.d(TAG, "postPlayer3 task start:preload");
+                            ret = preLoadInner();
+                            Log.d(TAG, "postPlayer3 task end:preload");
+                        } else {
+                            ret = 0;
+                        }
+                        Log.d(TAG, "postPlayer3 task start:play");
+                        if (ret == 0) {
+                            playInner();
+                        }
+                        Log.d(TAG, "postPlayer3 task end:play");
+                    } else {
+                        Log.w(TAG, "is playing");
+                    }
+                    break;
+                case msg_close:
+                    Log.d(TAG, "postPlayer3 task start:close");
+                    closeInner();
+                    Log.d(TAG, "postPlayer3 task end:close");
+                    break;
+            }
+            super.handleMessage(msg);
+        }
     }
 
     private void checkThread() {
-        if (mWorkThread == null || mWorkThread.isInterrupted()) {
-            mWorkThread = new HandlerThread("kk_player_work");
-            mWorkThread.start();
-            mHandler = new Handler(mWorkThread.getLooper());
+        if (mPlayThread == null) {
+            String name = "kk_player_work_" + (nativePtr * 3 / 2);
+            mPlayThread = new HandlerThread(name);
+            mPlayThread.start();
+            mPlayHandler = new MyHandler(mPlayThread.getLooper());
+        }
+        if (mCallBackThread == null) {
+            String name = "kk_player_callback_" + (nativePtr * 3 / 2);
+            mCallBackThread = new HandlerThread(name);
+            mCallBackThread.start();
+            mCallBackHandler = new Handler(mCallBackThread.getLooper());
         }
     }
 
-    private void post(Runnable runnable) {
+    public void postPlayer(final Runnable runnable, final String name) {
         checkThread();
-        mHandler.post(runnable);
+        if (mPlayHandler != null) {
+            if (Looper.myLooper() == mPlayHandler.getLooper()) {
+                Log.d(TAG, "postPlayer1 task start:" + name);
+                runnable.run();
+                Log.d(TAG, "postPlayer1 task end:" + name);
+            } else {
+                mPlayHandler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        Log.d(TAG, "postPlayer2 task start:" + name);
+                        runnable.run();
+                        Log.d(TAG, "postPlayer2 task end:" + name);
+                    }
+                });
+            }
+        }
+    }
+
+    public void postCallBack(Runnable runnable, String name) {
+        checkThread();
+        Log.v(TAG, "postCallBack task:" + name);
+        if (mCallBackHandler != null) {
+            if (Looper.myLooper() == mCallBackHandler.getLooper()) {
+                runnable.run();
+            } else {
+                mCallBackHandler.post(runnable);
+            }
+        }
     }
 
     public void stop() {
@@ -167,15 +266,16 @@ public class VideoPlayer implements Closeable {
     @Override
     public void close() {
         stop();
-        final long ptr = nativePtr;
-        post(new Runnable() {
-            @Override
-            public void run() {
-                native_close(ptr);
-                closeThread();
-            }
-        });
-        nativePtr = 0;
+        mPlayHandler.sendEmptyMessage(msg_close);
+        mPlayThread.quitSafely();
+        mCallBackThread.quitSafely();
+    }
+
+    private void closeInner() {
+        if (nativePtr != 0) {
+            native_close(nativePtr);
+            nativePtr = 0;
+        }
     }
 
     public int seek(double ms) {
@@ -198,20 +298,31 @@ public class VideoPlayer implements Closeable {
      * @param height
      */
     @Keep
-    public void onImageCallBack(byte[] data, int width, int height) {
-        if (mCallBack != null) {
-            mCallBack.onTakeImageCallBack(data, width, height);
-        }
+    public void onImageCallBack(final byte[] data, final int width, final int height) {
+        postCallBack(new Runnable() {
+            @Override
+            public void run() {
+                if (mCallBack != null) {
+                    mCallBack.onTakeImageCallBack(data, width, height);
+                }
+            }
+        }, "onImageCallBack");
     }
 
     @Keep
-    public void onFrameCallBack(byte[] nv21Data, int width, int height, double progress, double alltime) {
-        if (mCallBack != null) {
-            mCallBack.onVideoProgress(progress, alltime);
-            if (nv21Data != null) {
-                mCallBack.onFrameCallBack(nv21Data, width, height);
+    public void onFrameCallBack(final byte[] nv21Data, final int width, final int height,
+                                final double progress, final double alltime) {
+        postCallBack(new Runnable() {
+            @Override
+            public void run() {
+                if (mCallBack != null) {
+                    mCallBack.onVideoProgress(progress, alltime);
+                    if (nv21Data != null) {
+                        mCallBack.onFrameCallBack(nv21Data, width, height);
+                    }
+                }
             }
-        }
+        }, "onFrameCallBack");
     }
 
     public boolean takeImage() {
@@ -228,6 +339,16 @@ public class VideoPlayer implements Closeable {
     public boolean takeImage(int width, int height, int rotation, boolean mirror) {
         stop();
         return native_take_image(nativePtr, width, height, rotation, mirror) == 0;
+    }
+
+    public void postTakeImage(final int width, final int height, final int rotation, final boolean mirror) {
+        stop();
+        postPlayer(new Runnable() {
+            @Override
+            public void run() {
+                native_take_image(nativePtr, width, height, rotation, mirror);
+            }
+        }, "postTakeImage");
     }
 
     public boolean isPlaying() {

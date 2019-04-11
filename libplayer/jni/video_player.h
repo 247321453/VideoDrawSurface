@@ -152,6 +152,36 @@ namespace kk {
             size->display_width = size->scale_width;
             size->display_height = size->scale_height;
         }
+        int crop_x, crop_y, crop_w, crop_h;
+        if (size->need_swap_size) {
+            if (size->need_scale) {
+                crop_x = size->crop_y;
+                crop_y = size->crop_x;
+                crop_w = size->crop_height;
+                crop_h = size->crop_width;
+            } else {
+                crop_x = 0;
+                crop_y = 0;
+                crop_w = size->rotate_height;
+                crop_h = size->rotate_width;
+            }
+        } else {
+            if (size->need_scale) {
+                crop_x = size->crop_x;
+                crop_y = size->crop_y;
+                crop_w = size->crop_width;
+                crop_h = size->crop_height;
+            } else {
+                crop_x = 0;
+                crop_y = 0;
+                crop_w = size->rotate_width;
+                crop_h = size->rotate_height;
+            }
+        }
+        size->crop_x = crop_x;
+        size->crop_y = crop_y;
+        size->crop_width = crop_w;
+        size->crop_height = crop_h;
     }
 
     class VideoPlayer {
@@ -163,7 +193,6 @@ namespace kk {
             mPreviewWidth = width;
             mPreviewHeight = height;
             mPreRotation = preRotation;
-            initVideoSize(&Info, width, height, preRotation, stretch);
         }
 
         void SetSurface(ANativeWindow *surface) {

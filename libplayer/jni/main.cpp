@@ -111,6 +111,9 @@ jint jni_player_preload(JNIEnv *env, jobject obj, jlong ptr) {
 jint jni_player_play(JNIEnv *env, jobject obj, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        if(player->IsPlaying()){
+            return 1;
+        }
         return player->Play(env, obj);
     }
     return -1;
@@ -175,7 +178,7 @@ jni_player_take_image(JNIEnv *env, jobject obj, jlong ptr, jint width, jint heig
 double jni_player_get_play_time(JNIEnv *env, jobject, jlong ptr) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
-        return player->GetVideoDuration();
+        return player->GetPlayDuration();
     }
     return 0;
 }
@@ -218,32 +221,7 @@ jint jni_i420_rotate_crop_ex(JNIEnv *env, jclass,
     info.src_rotation = src_rotation;
     kk::initVideoSize(&info, dst_width, dst_height, dst_rotation, stretch);
 
-    int crop_x, crop_y, crop_w, crop_h;
-    if (info.need_swap_size) {
-        if (info.need_scale) {
-            crop_x = info.crop_y;
-            crop_y = info.crop_x;
-            crop_w = info.crop_height;
-            crop_h = info.crop_width;
-        } else {
-            crop_x = 0;
-            crop_y = 0;
-            crop_w = info.rotate_height;
-            crop_h = info.rotate_width;
-        }
-    } else {
-        if (info.need_scale) {
-            crop_x = info.crop_x;
-            crop_y = info.crop_y;
-            crop_w = info.crop_width;
-            crop_h = info.crop_height;
-        } else {
-            crop_x = 0;
-            crop_y = 0;
-            crop_w = info.rotate_width;
-            crop_h = info.rotate_height;
-        }
-    }
+    int crop_x = info.crop_x, crop_y = info.crop_y, crop_w = info.crop_width, crop_h = info.crop_height;
     int ret;
     if (info.need_scale) {
         uint8_t *r_data = new uint8_t[crop_w * crop_h * 3 / 2];

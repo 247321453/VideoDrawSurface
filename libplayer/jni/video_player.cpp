@@ -268,32 +268,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 //    long time, cur;
     ALOGD("start av_read_frame");
 
-    int crop_x, crop_y, crop_w, crop_h;
-    if (Info.need_swap_size) {
-        if (Info.need_scale) {
-            crop_x = Info.crop_y;
-            crop_y = Info.crop_x;
-            crop_w = Info.crop_height;
-            crop_h = Info.crop_width;
-        } else {
-            crop_x = 0;
-            crop_y = 0;
-            crop_w = Info.rotate_height;
-            crop_h = Info.rotate_width;
-        }
-    } else {
-        if (Info.need_scale) {
-            crop_x = Info.crop_x;
-            crop_y = Info.crop_y;
-            crop_w = Info.crop_width;
-            crop_h = Info.crop_height;
-        } else {
-            crop_x = 0;
-            crop_y = 0;
-            crop_w = Info.rotate_width;
-            crop_h = Info.rotate_height;
-        }
-    }
+    int crop_x = Info.crop_x, crop_y = Info.crop_y, crop_w = Info.crop_width, crop_h = Info.crop_height;
     ALOGD("src=%dx%d, dst=%dx%d crop %d,%d %dx%d",
           Info.src_width, Info.src_height,
           Info.display_width, Info.display_height,
@@ -358,6 +333,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                             memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
                         }
                         ANativeWindow_unlockAndPost(pNativeWindow);
+                    } else {
+                        ALOGW("lock surface fail");
                     }
                 }
                 if (mYuvCallBackId != nullptr) {
@@ -407,7 +384,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_height,
                            int dst_rotation, bool mirror) {
     if (pTakeYuvBuf != nullptr && mJpegCallBackId != nullptr) {
-        //TODO 处理i420得到jpeg数据
+        //处理i420得到jpeg数据
         uint8_t *i420 = pTakeYuvBuf;
         int video_width = Info.src_width;
         int video_height = Info.src_height;
@@ -435,32 +412,7 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_heig
             h = video_height;
         } else {
             //旋转并且裁剪
-            int crop_x, crop_y, crop_w, crop_h;
-            if (info.need_swap_size) {
-                if (info.need_scale) {
-                    crop_x = info.crop_y;
-                    crop_y = info.crop_x;
-                    crop_w = info.crop_height;
-                    crop_h = info.crop_width;
-                } else {
-                    crop_x = 0;
-                    crop_y = 0;
-                    crop_w = info.rotate_height;
-                    crop_h = info.rotate_width;
-                }
-            } else {
-                if (info.need_scale) {
-                    crop_x = info.crop_x;
-                    crop_y = info.crop_y;
-                    crop_w = info.crop_width;
-                    crop_h = info.crop_height;
-                } else {
-                    crop_x = 0;
-                    crop_y = 0;
-                    crop_w = info.rotate_width;
-                    crop_h = info.rotate_height;
-                }
-            }
+            int crop_x = info.crop_x, crop_y = info.crop_y, crop_w = info.crop_width, crop_h = info.crop_height;
             if (info.display_rotation == ROTATION_90 || info.display_rotation == ROTATION_270) {
                 w = crop_h;
                 h = crop_w;
