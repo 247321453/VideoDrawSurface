@@ -243,7 +243,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (ret != 0) {
         return ret;
     }
-    initSizeInfo(&Info, mPreviewWidth, mPreviewHeight, mPreRotation, mStretchMode);
+    InitSizeInfo(&Info, mPreviewWidth, mPreviewHeight, mPreRotation, mStretchMode);
     ret = initData();
     if (ret != 0) {
         return ret;
@@ -398,7 +398,7 @@ int VideoPlayer::TakeImage(JNIEnv *env, jobject obj, int dst_width, int dst_heig
         info.src_width = video_width;
         info.src_height = video_height;
         info.src_rotation = video_rotation;
-        initSizeInfo(&info, dst_width, dst_height, dst_rotation % 4, false);
+        InitSizeInfo(&info, dst_width, dst_height, dst_rotation % 4, false);
 
         int ret = 0;
         uint8_t *tmpData;

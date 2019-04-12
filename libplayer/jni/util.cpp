@@ -10,6 +10,7 @@ extern "C" {
 #include "libyuv.h"
 #include "util.h"
 #include "debug.h"
+#include "size_info.h"
 
 int av_frame_to_nv21(AVFrame *frame, uint8_t *nv21) {
     int width = frame->width;

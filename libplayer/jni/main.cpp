@@ -207,45 +207,6 @@ void jni_ffmpeg_init(JNIEnv *env, jclass) {
     av_register_all();
 }
 
-jint jni_i420_rotate_crop_ex(JNIEnv *env, jclass,
-                             jbyteArray src_i420_data,
-                             jint src_width, jint src_height, jint src_rotation,
-                             jbyteArray dst_i420_data,
-                             jint dst_width, jint dst_height, jint dst_rotation,
-                             jboolean stretch) {
-    jbyte *src = env->GetByteArrayElements(src_i420_data, NULL);
-    jbyte *dst = env->GetByteArrayElements(dst_i420_data, NULL);
-    kk::SizeInfo info;
-    info.src_width = src_width;
-    info.src_height = src_height;
-    info.src_rotation = src_rotation;
-    kk::initSizeInfo(&info, dst_width, dst_height, dst_rotation, stretch);
-
-    int ret;
-    int crop_x = info.crop_x, crop_y = info.crop_y, crop_w = info.crop_width, crop_h = info.crop_height;
-    if (info.need_scale) {
-        uint8_t *r_data = new uint8_t[crop_w * crop_h * 3 / 2];
-        ret = i420_rotate_crop((uint8_t *) src, src_width, src_height, info.display_rotation,
-                               crop_x, crop_y, crop_w, crop_h, r_data);
-        if (ret == 0) {
-            if (info.display_rotation == ROTATION_90 || info.display_rotation == ROTATION_270) {
-                ret = i420_scale(r_data, crop_h, crop_w, (uint8_t *) dst, info.display_width,
-                                 info.display_height, 3);
-            } else {
-                ret = i420_scale(r_data, crop_x, crop_h, (uint8_t *) dst, info.display_width,
-                                 info.display_height, 3);
-            }
-        }
-        free(r_data);
-    } else {
-        ret = i420_rotate_crop((uint8_t *) src, src_width, src_height, info.display_rotation,
-                               crop_x, crop_y, crop_w, crop_h, (uint8_t *) dst);
-    }
-    env->ReleaseByteArrayElements(src_i420_data, src, 0);
-    env->ReleaseByteArrayElements(dst_i420_data, dst, 0);
-    return ret;
-}
-
 
 JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     JNIEnv *env;
@@ -288,7 +249,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"i420Mirror",           "([BII[B)I",                     (void *) jni_i420_mirror},
 
             {"i420RotateWithCrop",   "([BIII[BIIII)I",                (void *) jni_i420_rotate_crop},
-            {"i420RotateWithCropEx", "([BIII[BIIIZ)I",                (void *) jni_i420_rotate_crop_ex},
+            {"i420RotateWithCropEx", "([BIII[BIIZ)I",                (void *) jni_i420_rotate_crop_ex},
             {"nv21ToI420",           "([BII[B)I",                     (void *) jni_nv21_to_i420},
             {"i420Scale",            "([BII[BIII)I",                  (void *) jni_i420_scale},
 

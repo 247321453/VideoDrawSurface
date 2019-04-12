@@ -1,5 +1,6 @@
 package net.kk.ffmpeg;
 
+import android.view.Gravity;
 import android.view.Surface;
 
 public class YuvUtil {
@@ -88,8 +89,23 @@ public class YuvUtil {
     public static native int i420RotateWithCrop(byte[] src, int width, int height, int rotation,
                                                 byte[] dst, int crop_x, int crop_y, int dst_width, int dst_height);
 
+
+    /**
+     *
+     * YUV数据的旋转，裁剪
+     *
+     * @param src      原始数据
+     * @param width    原始的宽
+     * @param height   原始的高
+     * @param rotation 0-3 旋转角度
+     * @param width    目标的宽
+     * @param height   目标的高
+     * @see Surface#ROTATION_0, Surface#ROTATION_90, Surface#ROTATION_180, Surface#ROTATION_270
+     * @mode 哪里开始裁剪
+     * @see Gravity
+     **/
     public static native int i420RotateWithCropEx(byte[] src, int width, int height, int rotation,
-                                                  byte[] dst, int dst_width, int dst_height, int dst_rotation, boolean stretch);
+                                                  byte[] dst, int dst_width, int dst_height, boolean stretch, int mode);
 
     /**
      * 将NV21转化为I420

@@ -2,8 +2,8 @@
 // Created by user on 2019/4/2.
 //
 
-#ifndef FFMPEGNATIVEWINDOW_FFMPEG_H
-#define FFMPEGNATIVEWINDOW_FFMPEG_H
+#ifndef KKPLAYER_FFMPEG_H
+#define KKPLAYER_FFMPEG_H
 
 #include <jni.h>
 #include <android/native_window.h>
@@ -152,4 +152,4 @@ namespace kk {
 
 }
 
-#endif //FFMPEGNATIVEWINDOW_FFMPEG_H
+#endif //KKPLAYER_FFMPEG_H
