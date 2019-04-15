@@ -1,5 +1,6 @@
 package net.kk.ffmpeg;
 
+import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.Looper;
@@ -41,7 +42,7 @@ public class VideoPlayer implements Closeable {
     static {
         System.loadLibrary("kkplayer");
     }
-
+    public static boolean DEBUG = false;
     private static final String TAG = "kkplayer";
     private HandlerThread mPlayThread;
     private MyHandler mPlayHandler;
@@ -101,12 +102,16 @@ public class VideoPlayer implements Closeable {
         }
         init();
         checkThread();
-        Log.d(TAG, "post play");
+        if(DEBUG) {
+            Log.d(TAG, "post play");
+        }
         mPlayHandler.sendEmptyMessage(msg_play);
     }
 
     private void playInner() {
-        Log.d(TAG, "playInner");
+        if(DEBUG) {
+            Log.d(TAG, "playInner");
+        }
         int ret = -30;
         if (mCallBack != null) {
             mCallBack.onPlayStart();
@@ -122,7 +127,9 @@ public class VideoPlayer implements Closeable {
     }
 
     private int preLoadInner() {
-        Log.d(TAG, "preLoadInner");
+        if(DEBUG) {
+            Log.d(TAG, "preLoadInner");
+        }
         int ret = -20;
         try {
             ret = native_preload(nativePtr);
@@ -186,25 +193,42 @@ public class VideoPlayer implements Closeable {
                     if (!isPlaying()) {
                         int ret;
                         if (mAllTime <= 0) {
-                            Log.d(TAG, "postPlayer3 task start:preload");
+                            if(DEBUG) {
+                                Log.d(TAG, "postPlayer3 task start:preload");
+                            }
                             ret = preLoadInner();
-                            Log.d(TAG, "postPlayer3 task end:preload");
+                            if(DEBUG) {
+                                Log.d(TAG, "postPlayer3 task end:preload");
+                            }
                         } else {
                             ret = 0;
                         }
-                        Log.d(TAG, "postPlayer3 task start:play");
+                        if(DEBUG) {
+                            Log.d(TAG, "postPlayer3 task start:play");
+                        }
                         if (ret == 0) {
                             playInner();
                         }
-                        Log.d(TAG, "postPlayer3 task end:play");
+                        if(DEBUG) {
+                            Log.d(TAG, "postPlayer3 task end:play");
+                        }
                     } else {
-                        Log.w(TAG, "is playing");
+                        if(DEBUG) {
+                            Log.w(TAG, "is playing");
+                        }
                     }
                     break;
                 case msg_close:
-                    Log.d(TAG, "postPlayer3 task start:close");
+                    if(DEBUG) {
+                        Log.d(TAG, "postPlayer3 task start:close");
+                    }
                     closeInner();
-                    Log.d(TAG, "postPlayer3 task end:close");
+                    if(DEBUG) {
+                        Log.d(TAG, "postPlayer3 task end:close");
+                    }
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
+                        mPlayThread.quit();
+                    }
                     break;
             }
             super.handleMessage(msg);
@@ -230,16 +254,24 @@ public class VideoPlayer implements Closeable {
         checkThread();
         if (mPlayHandler != null) {
             if (Looper.myLooper() == mPlayHandler.getLooper()) {
-                Log.d(TAG, "postPlayer1 task start:" + name);
+                if(DEBUG) {
+                    Log.d(TAG, "postPlayer1 task start:" + name);
+                }
                 runnable.run();
-                Log.d(TAG, "postPlayer1 task end:" + name);
+                if(DEBUG) {
+                    Log.d(TAG, "postPlayer1 task end:" + name);
+                }
             } else {
                 mPlayHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        Log.d(TAG, "postPlayer2 task start:" + name);
+                        if(DEBUG) {
+                            Log.d(TAG, "postPlayer2 task start:" + name);
+                        }
                         runnable.run();
-                        Log.d(TAG, "postPlayer2 task end:" + name);
+                        if(DEBUG) {
+                            Log.d(TAG, "postPlayer2 task end:" + name);
+                        }
                     }
                 });
             }
@@ -251,7 +283,9 @@ public class VideoPlayer implements Closeable {
             return;
         }
         checkThread();
-        Log.v(TAG, "postCallBack task:" + name);
+        if(DEBUG) {
+            Log.v(TAG, "postCallBack task:" + name);
+        }
         if (mCallBackHandler != null) {
             if (Looper.myLooper() == mCallBackHandler.getLooper()) {
                 runnable.run();
@@ -270,8 +304,14 @@ public class VideoPlayer implements Closeable {
         mClose = true;
         stop();
         mPlayHandler.sendEmptyMessage(msg_close);
-        mPlayThread.quitSafely();
-        mCallBackThread.quitSafely();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
+            mPlayThread.quitSafely();
+            mCallBackThread.quitSafely();
+        }else{
+            //see msg_close
+//            mPlayThread.quit();
+            mCallBackThread.quit();
+        }
     }
 
     private void closeInner() {

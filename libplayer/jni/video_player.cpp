@@ -63,7 +63,6 @@ int VideoPlayer::PreLoad() {
     pTimeBase.num = time_base.num;
     if (pFormatCtx->duration != AV_NOPTS_VALUE) {
         mVideoAllDuration = steam->duration * av_q2d(time_base);
-        ALOGD("video:all time=%f", mVideoAllDuration);
     }
     //角度，宽高
     Info.src_rotation = av_get_rotation(steam);
@@ -72,7 +71,6 @@ int VideoPlayer::PreLoad() {
     avcodec_parameters_to_context(pCodecCtx, steam->codecpar);
     Info.src_width = pCodecCtx->width;
     Info.src_height = pCodecCtx->height;
-    ALOGD("code::default");
     pCodec = avcodec_find_decoder(pCodecCtx->codec_id);
     if (pCodec == NULL) {
         return -5;
@@ -265,8 +263,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     }
     bool error = false;
 //    long time, cur;
-    ALOGD("start av_read_frame");
-
     int crop_x = Info.crop_x, crop_y = Info.crop_y, crop_w = Info.crop_width, crop_h = Info.crop_height;
     ALOGD("src=%dx%d, dst=%dx%d crop %d,%d %dx%d",
           Info.src_width, Info.src_height,
@@ -276,6 +272,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     int surface_height = Info.display_height;
     ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
                                      WINDOW_FORMAT_RGBA_8888);
+    ALOGD("start av_read_frame");
     while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
         //use the parser to split the data into frames
         //微秒
