@@ -11,14 +11,6 @@
 
 using namespace kk;
 
-VideoPlayer::VideoPlayer() {
-    mPlaying = false;
-}
-
-void VideoPlayer::Stop() {
-    mPlaying = false;
-}
-
 uint8_t *initFrame(AVFrame *frame, AVPixelFormat video_fmt, int width, int height) {
     int count = av_image_get_buffer_size(video_fmt, width, height, 1);
     uint8_t *buf = (uint8_t *) av_malloc(count * sizeof(uint8_t));
@@ -79,6 +71,13 @@ int VideoPlayer::PreLoad() {
     if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
         return -6;
     }
+    //AV_PIX_FMT_YUVJ420P
+    AVPixelFormat video_fmt = pCodecCtx->pix_fmt;
+    if (pCodecCtx->pix_fmt != AV_PIX_FMT_YUV420P && pCodecCtx->pix_fmt != AV_PIX_FMT_YUVJ420P) {
+        ALOGW("don't support fmt %d", video_fmt);
+        return -7;
+    }
+    mNeedJ420ToI420 = (video_fmt == AV_PIX_FMT_YUVJ420P);
     mPreLoad = true;
     ALOGD("PreLoad::ok");
     return 0;
@@ -96,6 +95,11 @@ void VideoPlayer::Close() {
 }
 
 void VideoPlayer::Release(bool resize) {
+    //pI420SwsCtx
+    if (pI420SwsCtx != nullptr) {
+        av_free(pI420SwsCtx);
+        pI420SwsCtx = nullptr;
+    }
     if (pRGBASwsCtx != nullptr) {
         av_free(pRGBASwsCtx);
         pRGBASwsCtx = nullptr;
@@ -118,6 +122,16 @@ void VideoPlayer::Release(bool resize) {
         av_free(pScaleFrame);
         pScaleFrame = nullptr;
     }
+
+    if (pI420Buf != nullptr) {
+        av_free(pI420Buf);
+        pI420Buf = nullptr;
+    }
+    if (pFrameI420 != nullptr) {
+        av_free(pFrameI420);
+        pFrameI420 = nullptr;
+    }
+
 
     if (pRotateCropBuf != nullptr) {
         av_free(pRotateCropBuf);
@@ -174,13 +188,22 @@ int VideoPlayer::Seek(double ms) {
 }
 
 int VideoPlayer::initData() {
+    AVPixelFormat video_fmt = pCodecCtx->pix_fmt;
     //原始
     if (pFrame == nullptr) {
         pFrame = av_frame_alloc();
     }
-    AVPixelFormat video_fmt = pCodecCtx->pix_fmt;
-    if (video_fmt != AV_PIX_FMT_YUV420P) {
-        return -7;
+    if (mNeedJ420ToI420) {
+        if (pFrameI420 == nullptr) {
+            pFrameI420 = av_frame_alloc();
+            pI420Buf = initFrame(pFrameI420, AV_PIX_FMT_YUV420P, Info.src_width, Info.src_height);
+            ALOGD("init j420p frame %dx%d", Info.src_width, Info.src_height);
+        }
+        if (pI420SwsCtx == nullptr) {
+            pI420SwsCtx = sws_getContext(Info.src_width, Info.src_height, video_fmt,
+                                         Info.src_width, Info.src_height, AV_PIX_FMT_YUV420P,
+                                         SWS_BILINEAR, NULL, NULL, NULL);
+        }
     }
     //存放原始数据
     if (pTakeYuvBuf == nullptr) {
@@ -227,7 +250,7 @@ int VideoPlayer::initData() {
         if (pNv21SwsCtx == nullptr) {
             pNv21SwsCtx = sws_getContext(Info.display_width, Info.display_height, video_fmt,
                                          Info.display_width, Info.display_height, AV_PIX_FMT_NV21,
-                                         SWS_BILINEAR, NULL, NULL, NULL);
+                                         SWS_FAST_BILINEAR, NULL, NULL, NULL);
         }
     }
     return 0;
@@ -291,12 +314,20 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
 //                time = cur;
                 mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
 
+                if(mNeedJ420ToI420){
+                    sws_scale(pI420SwsCtx, (uint8_t const *const *) pFrame->data,
+                              pFrame->linesize, 0, Info.src_height,
+                              pFrameI420->data, pFrameI420->linesize);
+                    tmpFrame = pFrameI420;
+                }else{
+                    tmpFrame = pFrame;
+                }
+
                 if (Info.display_rotation == ROTATION_0 && !Info.need_crop) {
                     //角度是0，并且不需要裁剪
-                    tmpFrame = pFrame;
                 } else {
                     //旋转并且裁剪
-                    ret = av_frame_rotate_crop(pFrame, Info.display_rotation,
+                    ret = av_frame_rotate_crop(tmpFrame, Info.display_rotation,
                                                crop_x, crop_y, crop_w, crop_h,
                                                pRotateCropFrame);
                     if (ret != 0) {

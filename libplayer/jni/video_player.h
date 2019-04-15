@@ -20,8 +20,9 @@ extern "C" {
 namespace kk {
     class VideoPlayer {
     public:
-        VideoPlayer();
-
+        VideoPlayer() {
+            mPlaying = false;
+        }
         void SetSize(int width, int height, bool stretch, int preRotation) {
             mStretchMode = stretch;
             mPreviewWidth = width;
@@ -55,7 +56,9 @@ namespace kk {
 
         int Play(JNIEnv *env, jobject obj);
 
-        void Stop();
+        void Stop() {
+            mPlaying = false;
+        }
 
         void Close();
 
@@ -112,6 +115,7 @@ namespace kk {
         ANativeWindow *pNativeWindow = nullptr;
         AVFormatContext *pFormatCtx = nullptr;
         AVCodecContext *pCodecCtx = nullptr;
+        AVFrame *pFrameI420 = nullptr;
         AVCodec *pCodec = nullptr;
         AVFrame *pFrameRGBA = nullptr;
         AVFrame *pFrameNv21 = nullptr;
@@ -120,6 +124,7 @@ namespace kk {
 
         AVFrame *pScaleFrame = nullptr;
         AVRational pTimeBase;
+        uint8_t *pI420Buf = nullptr;
         uint8_t *pScaleBuf = nullptr;
         uint8_t *pRotateCropBuf = nullptr;
         uint8_t *pRgbaBuf = nullptr;
@@ -127,6 +132,7 @@ namespace kk {
         //原始i420数据
         uint8_t *pTakeYuvBuf = nullptr;
         int pVideoYuvLen = -1;
+        struct SwsContext *pI420SwsCtx = nullptr;
         struct SwsContext *pRGBASwsCtx = nullptr;
         struct SwsContext *pNv21SwsCtx = nullptr;
 
@@ -134,6 +140,7 @@ namespace kk {
         jmethodID mYuvCallBackId = nullptr;
         const char *mFileName = nullptr;
 
+        bool mNeedJ420ToI420 = false;
         double mVideoCurDuration = 0;
         double mVideoAllDuration = 0;
 

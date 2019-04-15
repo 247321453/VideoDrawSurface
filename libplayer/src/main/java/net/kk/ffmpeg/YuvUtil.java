@@ -1,6 +1,5 @@
 package net.kk.ffmpeg;
 
-import android.view.Gravity;
 import android.view.Surface;
 
 public class YuvUtil {
