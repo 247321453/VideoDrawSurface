@@ -249,7 +249,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"i420Mirror",           "([BII[B)I",                     (void *) jni_i420_mirror},
 
             {"i420RotateWithCrop",   "([BIII[BIIII)I",                (void *) jni_i420_rotate_crop},
-            {"i420RotateWithCropEx", "([BIII[BIIZ)I",                (void *) jni_i420_rotate_crop_ex},
+            {"i420RotateWithCropEx", "([BIII[BIIZI)I",                (void *) jni_i420_rotate_crop_ex},
             {"nv21ToI420",           "([BII[B)I",                     (void *) jni_nv21_to_i420},
             {"i420Scale",            "([BII[BIII)I",                  (void *) jni_i420_scale},
 
