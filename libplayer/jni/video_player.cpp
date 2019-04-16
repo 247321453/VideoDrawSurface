@@ -135,17 +135,17 @@ void VideoPlayer::Release(bool resize) {
         av_free(pRotateCropFrame);
         pRotateCropFrame = nullptr;
     }
-    if (pRgbaBuf != nullptr) {
-        av_free(pRgbaBuf);
-        pRgbaBuf = nullptr;
+    if (pRgbBuf != nullptr) {
+        av_free(pRgbBuf);
+        pRgbBuf = nullptr;
     }
     if (pNv21Buf != nullptr) {
         av_free(pNv21Buf);
         pNv21Buf = nullptr;
     }
-    if (pFrameRGBA != nullptr) {
-        av_free(pFrameRGBA);
-        pFrameRGBA = nullptr;
+    if (pFrameRGB != nullptr) {
+        av_free(pFrameRGB);
+        pFrameRGB = nullptr;
     }
     if (pFrameNv21 != nullptr) {
         av_free(pFrameNv21);
@@ -221,15 +221,16 @@ int VideoPlayer::initData() {
     }
 
     if (pNativeWindow != nullptr) {
-        if (pFrameRGBA == nullptr) {
-            pFrameRGBA = av_frame_alloc();
-            pRgbaBuf = initFrame(pFrameRGBA, AV_PIX_FMT_RGBA, Info.display_width,
-                                 Info.display_height);
+        AVPixelFormat rgb_fmt = mRGB565Mode ? AV_PIX_FMT_RGB565 : AV_PIX_FMT_RGBA;
+        if (pFrameRGB == nullptr) {
+            pFrameRGB = av_frame_alloc();
+            pRgbBuf = initFrame(pFrameRGB, rgb_fmt, Info.display_width,
+                                Info.display_height);
             ALOGD("init rgba frame %dx%d", Info.display_width, Info.display_height);
         }
         if (pRGBASwsCtx == nullptr) {
             pRGBASwsCtx = sws_getContext(Info.display_width, Info.display_height, video_fmt,
-                                         Info.display_width, Info.display_height, AV_PIX_FMT_RGBA,
+                                         Info.display_width, Info.display_height, rgb_fmt,
                                          SWS_FAST_BILINEAR, NULL, NULL, NULL);
         }
     }
@@ -288,7 +289,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     int surface_width = Info.display_width;
     int surface_height = Info.display_height;
     ret = ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
-                                     WINDOW_FORMAT_RGBA_8888);
+                                           mRGB565Mode?WINDOW_FORMAT_RGB_565:WINDOW_FORMAT_RGBA_8888);
     if(ret != 0){
         ALOGD("ANativeWindow_setBuffersGeometry error %d", ret);
     }else {
@@ -349,15 +350,20 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                     if (pNativeWindow != nullptr) {
                         sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
                                   tmpFrame->linesize, 0, surface_height,
-                                  pFrameRGBA->data, pFrameRGBA->linesize);
+                                  pFrameRGB->data, pFrameRGB->linesize);
                         if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
                             uint8_t *dst = (uint8_t *) windowBuffer.bits;
-                            int dstStride = windowBuffer.stride * 4;
-                            uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
-                            size_t src_stride = (size_t) pFrameRGBA->linesize[0];
+                            int dst_stride;
+                            uint8_t *src = pFrameRGB->data[0];
+                            size_t src_stride = (size_t) pFrameRGB->linesize[0];
+                            if (windowBuffer.format == WINDOW_FORMAT_RGB_565) {
+                                dst_stride = windowBuffer.stride * 2;
+                            } else {
+                                dst_stride = windowBuffer.stride * 4;
+                            }
                             // 由于window的stride和帧的stride不同,因此需要逐行复制
                             for (h = 0; h < surface_height; h++) {
-                                memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
+                                memcpy(dst + h * dst_stride, src + h * src_stride, src_stride);
                             }
                             ANativeWindow_unlockAndPost(pNativeWindow);
                         }

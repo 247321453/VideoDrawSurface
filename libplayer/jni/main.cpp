@@ -137,8 +137,8 @@ void jni_player_stop(JNIEnv *env, jobject obj, jlong ptr) {
     }
 }
 
-jlong jni_create_player(JNIEnv *env, jclass) {
-    kk::VideoPlayer *player = new kk::VideoPlayer;
+jlong jni_create_player(JNIEnv *env, jclass, jboolean rgb565) {
+    kk::VideoPlayer *player = new kk::VideoPlayer(rgb565);
     return (jlong) player;
 }
 
@@ -213,7 +213,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
     jclass video_player = (jclass) env->NewGlobalRef(env->FindClass(JNI_CLASS_NAME));
     static JNINativeMethod methods[] = {
-            {"native_create",          "()J",                        (void *) jni_create_player},
+            {"native_create",          "(Z)J",                        (void *) jni_create_player},
             {"native_set_surface",     "(JLandroid/view/Surface;)V", (void *) jni_player_set_surface},
             {"native_set_callback",    "(JZ)V",                      (void *) jni_player_set_callback},
             {"native_set_size",        "(JIIZI)V",                   (void *) jni_player_set_size},

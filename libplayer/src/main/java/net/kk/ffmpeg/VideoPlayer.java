@@ -56,8 +56,12 @@ public class VideoPlayer implements Closeable {
     private Surface mSurface;
     private boolean mClose;
 
-    public VideoPlayer() {
-        nativePtr = native_create();
+    /**
+     *
+     * @param rgb565 true则用rgb565，false则用rgba
+     */
+    public VideoPlayer(boolean rgb565) {
+        nativePtr = native_create(rgb565);
     }
 
     /**
@@ -417,7 +421,7 @@ public class VideoPlayer implements Closeable {
 
     private static native void native_init_ffmpeg();
 
-    private static native long native_create();
+    private static native long native_create(boolean rgb565);
 
     private native void native_set_surface(long ptr, Surface surface);
 

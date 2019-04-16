@@ -20,8 +20,9 @@ extern "C" {
 namespace kk {
     class VideoPlayer {
     public:
-        VideoPlayer() {
+        VideoPlayer(bool rgb565) {
             mPlaying = false;
+            mRGB565Mode = rgb565;
         }
         void SetSize(int width, int height, bool stretch, int preRotation) {
             mStretchMode = stretch;
@@ -97,6 +98,7 @@ namespace kk {
         }
 
     private:
+        bool mRGB565Mode = false;
         bool mPreLoad;
         //循环播放
         bool mPlaying;
@@ -117,7 +119,7 @@ namespace kk {
         AVCodecContext *pCodecCtx = nullptr;
         AVFrame *pFrameI420 = nullptr;
         AVCodec *pCodec = nullptr;
-        AVFrame *pFrameRGBA = nullptr;
+        AVFrame *pFrameRGB = nullptr;
         AVFrame *pFrameNv21 = nullptr;
         AVFrame *pFrame = nullptr;
         AVFrame *pRotateCropFrame = nullptr;
@@ -127,7 +129,7 @@ namespace kk {
         uint8_t *pI420Buf = nullptr;
         uint8_t *pScaleBuf = nullptr;
         uint8_t *pRotateCropBuf = nullptr;
-        uint8_t *pRgbaBuf = nullptr;
+        uint8_t *pRgbBuf = nullptr;
         uint8_t *pNv21Buf = nullptr;
         //原始i420数据
         uint8_t *pTakeYuvBuf = nullptr;
