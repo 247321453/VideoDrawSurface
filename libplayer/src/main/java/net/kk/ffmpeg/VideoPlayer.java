@@ -1,5 +1,6 @@
 package net.kk.ffmpeg;
 
+import android.graphics.SurfaceTexture;
 import android.os.Build;
 import android.os.Handler;
 import android.os.HandlerThread;
@@ -25,6 +26,8 @@ import java.io.Closeable;
  */
 public class VideoPlayer implements Closeable {
 
+    private static final boolean DEBUG = true;
+
     public interface CallBack {
         void onVideoProgress(double cur, double all);
 
@@ -42,7 +45,7 @@ public class VideoPlayer implements Closeable {
     static {
         System.loadLibrary("kkplayer");
     }
-    public static boolean DEBUG = false;
+
     private static final String TAG = "kkplayer";
     private HandlerThread mPlayThread;
     private MyHandler mPlayHandler;
@@ -53,11 +56,12 @@ public class VideoPlayer implements Closeable {
     private double mCurTime;
     private double mAllTime;
     private String source;
-    private Surface mSurface;
     private boolean mClose;
+    private Surface mTexSurface;
+    private Surface mSurface;
+    private SurfaceTexture mTexture;
 
     /**
-     *
      * @param rgb565 true则用rgb565，false则用rgba
      */
     public VideoPlayer(boolean rgb565) {
@@ -80,12 +84,17 @@ public class VideoPlayer implements Closeable {
         native_set_callback(nativePtr, needNv21Data);
     }
 
-    public void setSurface(Surface surface) {
-        if (mSurface == surface) {
-            return;
+    public void setSurface(Surface surface, SurfaceTexture texture) {
+        if (surface == null && texture != null) {
+            if(mTexture != texture) {
+                releaseTexture();
+                mTexSurface = new Surface(texture);
+            }
+            surface = mTexSurface;
         }
-        mSurface = surface;
-        native_set_surface(nativePtr, surface);
+        if(surface != mSurface) {
+            native_set_surface(nativePtr, surface);
+        }
     }
 
     public String getSource() {
@@ -106,14 +115,14 @@ public class VideoPlayer implements Closeable {
         }
         init();
         checkThread();
-        if(DEBUG) {
+        if (DEBUG) {
             Log.d(TAG, "post play");
         }
         mPlayHandler.sendEmptyMessage(msg_play);
     }
 
     private void playInner() {
-        if(DEBUG) {
+        if (DEBUG) {
             Log.d(TAG, "playInner");
         }
         int ret = -30;
@@ -131,7 +140,7 @@ public class VideoPlayer implements Closeable {
     }
 
     private int preLoadInner() {
-        if(DEBUG) {
+        if (DEBUG) {
             Log.d(TAG, "preLoadInner");
         }
         int ret = -20;
@@ -197,37 +206,37 @@ public class VideoPlayer implements Closeable {
                     if (!isPlaying()) {
                         int ret;
                         if (mAllTime <= 0) {
-                            if(DEBUG) {
+                            if (DEBUG) {
                                 Log.d(TAG, "postPlayer3 task start:preload");
                             }
                             ret = preLoadInner();
-                            if(DEBUG) {
+                            if (DEBUG) {
                                 Log.d(TAG, "postPlayer3 task end:preload");
                             }
                         } else {
                             ret = 0;
                         }
-                        if(DEBUG) {
+                        if (DEBUG) {
                             Log.d(TAG, "postPlayer3 task start:play");
                         }
                         if (ret == 0) {
                             playInner();
                         }
-                        if(DEBUG) {
+                        if (DEBUG) {
                             Log.d(TAG, "postPlayer3 task end:play");
                         }
                     } else {
-                        if(DEBUG) {
+                        if (DEBUG) {
                             Log.w(TAG, "is playing");
                         }
                     }
                     break;
                 case msg_close:
-                    if(DEBUG) {
+                    if (DEBUG) {
                         Log.d(TAG, "postPlayer3 task start:close");
                     }
                     closeInner();
-                    if(DEBUG) {
+                    if (DEBUG) {
                         Log.d(TAG, "postPlayer3 task end:close");
                     }
                     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.JELLY_BEAN_MR2) {
@@ -258,22 +267,22 @@ public class VideoPlayer implements Closeable {
         checkThread();
         if (mPlayHandler != null) {
             if (Looper.myLooper() == mPlayHandler.getLooper()) {
-                if(DEBUG) {
+                if (DEBUG) {
                     Log.d(TAG, "postPlayer1 task start:" + name);
                 }
                 runnable.run();
-                if(DEBUG) {
+                if (DEBUG) {
                     Log.d(TAG, "postPlayer1 task end:" + name);
                 }
             } else {
                 mPlayHandler.post(new Runnable() {
                     @Override
                     public void run() {
-                        if(DEBUG) {
+                        if (DEBUG) {
                             Log.d(TAG, "postPlayer2 task start:" + name);
                         }
                         runnable.run();
-                        if(DEBUG) {
+                        if (DEBUG) {
                             Log.d(TAG, "postPlayer2 task end:" + name);
                         }
                     }
@@ -287,7 +296,7 @@ public class VideoPlayer implements Closeable {
             return;
         }
         checkThread();
-        if(DEBUG) {
+        if (DEBUG) {
             Log.v(TAG, "postCallBack task:" + name);
         }
         if (mCallBackHandler != null) {
@@ -303,15 +312,27 @@ public class VideoPlayer implements Closeable {
         native_stop(nativePtr);
     }
 
+    private void releaseTexture() {
+        if (mTexSurface != null) {
+            try {
+                mTexSurface.release();
+            } catch (Throwable e) {
+                e.printStackTrace();
+            }
+            mTexSurface = null;
+        }
+    }
+
     @Override
     public void close() {
         mClose = true;
         stop();
+        releaseTexture();
         mPlayHandler.sendEmptyMessage(msg_close);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR2) {
             mPlayThread.quitSafely();
             mCallBackThread.quitSafely();
-        }else{
+        } else {
             //see msg_close
 //            mPlayThread.quit();
             mCallBackThread.quit();

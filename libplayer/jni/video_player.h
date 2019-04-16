@@ -20,10 +20,14 @@ extern "C" {
 namespace kk {
     class VideoPlayer {
     public:
-        VideoPlayer(bool rgb565) {
+        VideoPlayer() {
             mPlaying = false;
+        }
+
+        void EnableRGB565Mode(bool rgb565) {
             mRGB565Mode = rgb565;
         }
+
         void SetSize(int width, int height, bool stretch, int preRotation) {
             mStretchMode = stretch;
             mPreviewWidth = width;
@@ -31,7 +35,7 @@ namespace kk {
             mPreRotation = preRotation;
         }
 
-        void SetSurface(ANativeWindow *surface) {
+        void SetANativeWindow(ANativeWindow *surface) {
             if (pNativeWindow != nullptr) {
                 ANativeWindow_release(pNativeWindow);
                 pNativeWindow = nullptr;

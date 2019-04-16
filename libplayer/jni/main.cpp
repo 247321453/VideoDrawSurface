@@ -64,10 +64,12 @@ jint jni_player_get_rotate(JNIEnv *env, jobject obj, jlong ptr) {
 
 void
 jni_player_set_surface(JNIEnv *env, jobject obj, jlong ptr, jobject surface) {
-    if (ptr != 0) {
+    if (ptr != 0 && surface != nullptr) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         ANativeWindow *nativeWindow = ANativeWindow_fromSurface(env, surface);
-        player->SetSurface(nativeWindow);
+        if(nativeWindow != nullptr) {
+            player->SetANativeWindow(nativeWindow);
+        }
     }
 }
 
@@ -138,7 +140,8 @@ void jni_player_stop(JNIEnv *env, jobject obj, jlong ptr) {
 }
 
 jlong jni_create_player(JNIEnv *env, jclass, jboolean rgb565) {
-    kk::VideoPlayer *player = new kk::VideoPlayer(rgb565);
+    kk::VideoPlayer *player = new kk::VideoPlayer;
+    player->EnableRGB565Mode(rgb565);
     return (jlong) player;
 }
 
@@ -213,26 +216,26 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
     vm->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
     jclass video_player = (jclass) env->NewGlobalRef(env->FindClass(JNI_CLASS_NAME));
     static JNINativeMethod methods[] = {
-            {"native_create",          "(Z)J",                        (void *) jni_create_player},
-            {"native_set_surface",     "(JLandroid/view/Surface;)V", (void *) jni_player_set_surface},
-            {"native_set_callback",    "(JZ)V",                      (void *) jni_player_set_callback},
-            {"native_set_size",        "(JIIZI)V",                   (void *) jni_player_set_size},
-            {"native_get_width",       "(J)I",                       (void *) jni_player_get_width},
-            {"native_get_height",      "(J)I",                       (void *) jni_player_get_height},
-            {"native_get_rotate",      "(J)I",                       (void *) jni_player_get_rotate},
-            {"native_set_data_source", "(JLjava/lang/String;)V",     (void *) jni_set_data_source},
-            {"native_play",            "(J)I",                       (void *) jni_player_play},
-            {"native_preload",         "(J)I",                       (void *) jni_player_preload},
-            {"native_stop",            "(J)V",                       (void *) jni_player_stop},
-            {"native_close",           "(J)V",                       (void *) jni_player_close},
-            {"native_release",         "(J)V",                       (void *) jni_player_release},
-            {"native_seek",            "(JD)I",                      (void *) jni_player_seek},
-            {"native_take_image",      "(JIIIZ)I",                   (void *) jni_player_take_image},
-            {"native_get_cur_time",    "(J)D",                       (void *) jni_player_get_play_time},
-            {"native_get_all_time",    "(J)D",                       (void *) jni_player_get_video_time},
-            {"native_get_status",      "(J)I",                       (void *) jni_player_get_status},
-            {"native_init_ffmpeg",     "()V",                        (void *) jni_ffmpeg_init},
-            {"native_get_last_frame",  "(J[B)I",                     (void *) jni_player_get_last_frame},
+            {"native_create",             "(Z)J",                       (void *) jni_create_player},
+            {"native_set_surface",        "(JLandroid/view/Surface;)V", (void *) jni_player_set_surface},
+            {"native_set_callback",       "(JZ)V",                      (void *) jni_player_set_callback},
+            {"native_set_size",           "(JIIZI)V",                   (void *) jni_player_set_size},
+            {"native_get_width",          "(J)I",                       (void *) jni_player_get_width},
+            {"native_get_height",         "(J)I",                       (void *) jni_player_get_height},
+            {"native_get_rotate",         "(J)I",                       (void *) jni_player_get_rotate},
+            {"native_set_data_source",    "(JLjava/lang/String;)V",     (void *) jni_set_data_source},
+            {"native_play",               "(J)I",                       (void *) jni_player_play},
+            {"native_preload",            "(J)I",                       (void *) jni_player_preload},
+            {"native_stop",               "(J)V",                       (void *) jni_player_stop},
+            {"native_close",              "(J)V",                       (void *) jni_player_close},
+            {"native_release",            "(J)V",                       (void *) jni_player_release},
+            {"native_seek",               "(JD)I",                      (void *) jni_player_seek},
+            {"native_take_image",         "(JIIIZ)I",                              (void *) jni_player_take_image},
+            {"native_get_cur_time",       "(J)D",                                  (void *) jni_player_get_play_time},
+            {"native_get_all_time",       "(J)D",                                  (void *) jni_player_get_video_time},
+            {"native_get_status",         "(J)I",                                  (void *) jni_player_get_status},
+            {"native_init_ffmpeg",        "()V",                                   (void *) jni_ffmpeg_init},
+            {"native_get_last_frame",     "(J[B)I",                                (void *) jni_player_get_last_frame},
             //  {"native_test_play", "(Landroid/view/Surface;Ljava/lang/String;)I", (void *) jni_test_play},
     };
     if (env->RegisterNatives(video_player, methods, 20) < 0) {

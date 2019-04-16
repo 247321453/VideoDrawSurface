@@ -288,8 +288,13 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
           crop_x, crop_y, crop_w, crop_h);
     int surface_width = Info.display_width;
     int surface_height = Info.display_height;
-    ret = ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
-                                           mRGB565Mode?WINDOW_FORMAT_RGB_565:WINDOW_FORMAT_RGBA_8888);
+    if(pNativeWindow == nullptr){
+        ret=0;
+    }else {
+        ret = ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
+                                               mRGB565Mode ? WINDOW_FORMAT_RGB_565
+                                                           : WINDOW_FORMAT_RGBA_8888);
+    }
     if(ret != 0){
         ALOGD("ANativeWindow_setBuffersGeometry error %d", ret);
     }else {
