@@ -71,13 +71,7 @@ int VideoPlayer::PreLoad() {
     if (avcodec_open2(pCodecCtx, pCodec, NULL) < 0) {
         return -6;
     }
-    //AV_PIX_FMT_YUVJ420P
-    AVPixelFormat video_fmt = pCodecCtx->pix_fmt;
-    if (pCodecCtx->pix_fmt != AV_PIX_FMT_YUV420P && pCodecCtx->pix_fmt != AV_PIX_FMT_YUVJ420P) {
-        ALOGW("don't support fmt %d", video_fmt);
-        return -7;
-    }
-    mNeedJ420ToI420 = (video_fmt == AV_PIX_FMT_YUVJ420P);
+    mNeedToI420 = (pCodecCtx->pix_fmt != AV_PIX_FMT_YUV420P);
     mPreLoad = true;
     ALOGD("PreLoad::ok");
     return 0;
@@ -193,7 +187,7 @@ int VideoPlayer::initData() {
     if (pFrame == nullptr) {
         pFrame = av_frame_alloc();
     }
-    if (mNeedJ420ToI420) {
+    if (mNeedToI420) {
         if (pFrameI420 == nullptr) {
             pFrameI420 = av_frame_alloc();
             pI420Buf = initFrame(pFrameI420, AV_PIX_FMT_YUV420P, Info.src_width, Info.src_height);
@@ -293,106 +287,111 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
           crop_x, crop_y, crop_w, crop_h);
     int surface_width = Info.display_width;
     int surface_height = Info.display_height;
-    ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
+    ret = ANativeWindow_setBuffersGeometry(pNativeWindow, surface_width, surface_height,
                                      WINDOW_FORMAT_RGBA_8888);
-    ALOGD("start av_read_frame");
-    while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
-        //use the parser to split the data into frames
-        //微秒
-        if (packet.stream_index == mVideoStream) {
-            ret = avcodec_send_packet(pCodecCtx, &packet);
+    if(ret != 0){
+        ALOGD("ANativeWindow_setBuffersGeometry error %d", ret);
+    }else {
+        ALOGD("start av_read_frame");
+        while (mPlaying && av_read_frame(pFormatCtx, &packet) >= 0) {
+            //use the parser to split the data into frames
+            //微秒
+            if (packet.stream_index == mVideoStream) {
+                ret = avcodec_send_packet(pCodecCtx, &packet);
 
-            if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
-                error = true;
-                break;
-            }
+                if (ret < 0 && ret != AVERROR(EAGAIN) && ret != AVERROR_EOF) {
+                    error = true;
+                    break;
+                }
 
-            while (mPlaying && avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
+                while (mPlaying && avcodec_receive_frame(pCodecCtx, pFrame) == 0) {
 //                time = getCurTime();
-                av_frame_to_i420(pFrame, pTakeYuvBuf);
+                    av_frame_to_i420(pFrame, pTakeYuvBuf);
 //                cur = getCurTime();
 //                time = cur;
-                mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
+                    mVideoCurDuration = pFrame->pts * av_q2d(pTimeBase);
 
-                if(mNeedJ420ToI420){
-                    sws_scale(pI420SwsCtx, (uint8_t const *const *) pFrame->data,
-                              pFrame->linesize, 0, Info.src_height,
-                              pFrameI420->data, pFrameI420->linesize);
-                    tmpFrame = pFrameI420;
-                }else{
-                    tmpFrame = pFrame;
-                }
+                    if (mNeedToI420) {
+                        sws_scale(pI420SwsCtx, (uint8_t const *const *) pFrame->data,
+                                  pFrame->linesize, 0, Info.src_height,
+                                  pFrameI420->data, pFrameI420->linesize);
+                        tmpFrame = pFrameI420;
+                    } else {
+                        tmpFrame = pFrame;
+                    }
 
-                if (Info.display_rotation == ROTATION_0 && !Info.need_crop) {
-                    //角度是0，并且不需要裁剪
-                } else {
-                    //旋转并且裁剪
-                    ret = av_frame_rotate_crop(tmpFrame, Info.display_rotation,
-                                               crop_x, crop_y, crop_w, crop_h,
-                                               pRotateCropFrame);
-                    if (ret != 0) {
-                        error = true;
-                        break;
+                    if (Info.display_rotation == ROTATION_0 && !Info.need_crop) {
+                        //角度是0，并且不需要裁剪
+                    } else {
+                        //旋转并且裁剪
+                        ret = av_frame_rotate_crop(tmpFrame, Info.display_rotation,
+                                                   crop_x, crop_y, crop_w, crop_h,
+                                                   pRotateCropFrame);
+                        if (ret != 0) {
+                            error = true;
+                            break;
+                        }
+                        tmpFrame = pRotateCropFrame;
                     }
-                    tmpFrame = pRotateCropFrame;
-                }
-                if (Info.need_scale) {
-                    //缩放
-                    ret = av_frame_scale(tmpFrame, pScaleFrame, Info.scale_width,
-                                         Info.scale_height);
-                    if (ret != 0) {
-                        error = true;
-                        break;
+                    if (Info.need_scale) {
+                        //缩放
+                        ret = av_frame_scale(tmpFrame, pScaleFrame, Info.scale_width,
+                                             Info.scale_height);
+                        if (ret != 0) {
+                            error = true;
+                            break;
+                        }
+                        tmpFrame = pScaleFrame;
                     }
-                    tmpFrame = pScaleFrame;
-                }
 //                cur = getCurTime();
 //                ALOGD("yuv rotate,crop, scale use time %ld", (cur - time));
-                //surface绘制
-                if (pNativeWindow != nullptr) {
-                    sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
-                              tmpFrame->linesize, 0, surface_height,
-                              pFrameRGBA->data, pFrameRGBA->linesize);
-                    if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
-                        uint8_t *dst = (uint8_t *) windowBuffer.bits;
-                        int dstStride = windowBuffer.stride * 4;
-                        uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
-                        size_t src_stride = (size_t) pFrameRGBA->linesize[0];
-                        // 由于window的stride和帧的stride不同,因此需要逐行复制
-                        for (h = 0; h < surface_height; h++) {
-                            memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
+                    //surface绘制
+                    if (pNativeWindow != nullptr) {
+                        sws_scale(pRGBASwsCtx, (uint8_t const *const *) tmpFrame->data,
+                                  tmpFrame->linesize, 0, surface_height,
+                                  pFrameRGBA->data, pFrameRGBA->linesize);
+                        if (ANativeWindow_lock(pNativeWindow, &windowBuffer, NULL) >= 0) {
+                            uint8_t *dst = (uint8_t *) windowBuffer.bits;
+                            int dstStride = windowBuffer.stride * 4;
+                            uint8_t *src = (uint8_t *) pFrameRGBA->data[0];
+                            size_t src_stride = (size_t) pFrameRGBA->linesize[0];
+                            // 由于window的stride和帧的stride不同,因此需要逐行复制
+                            for (h = 0; h < surface_height; h++) {
+                                memcpy(dst + h * dstStride, src + h * src_stride, src_stride);
+                            }
+                            ANativeWindow_unlockAndPost(pNativeWindow);
                         }
-                        ANativeWindow_unlockAndPost(pNativeWindow);
                     }
-                }
-                if (mYuvCallBackId != nullptr) {
-                    if (mNeedNv21Data) {
-                        sws_scale(pNv21SwsCtx, (uint8_t const *const *) tmpFrame->data,
-                                  tmpFrame->linesize, 0, Info.display_height,
-                                  pFrameNv21->data, pFrameNv21->linesize);
-                        if (yuvNv21Data != nullptr && yuvArray != nullptr) {
-                            memcpy(yuvNv21Data, pFrameNv21->data[0], y_step);//拷贝Y分量
-                            memcpy(yuvNv21Data + y_step, pFrameNv21->data[1], y_step / 2);//uv
-                            env->SetByteArrayRegion(yuvArray, 0, yuvLen, yuvNv21Data);
-                            env->CallVoidMethod(obj, mYuvCallBackId, yuvArray, Info.display_width,
+                    if (mYuvCallBackId != nullptr) {
+                        if (mNeedNv21Data) {
+                            sws_scale(pNv21SwsCtx, (uint8_t const *const *) tmpFrame->data,
+                                      tmpFrame->linesize, 0, Info.display_height,
+                                      pFrameNv21->data, pFrameNv21->linesize);
+                            if (yuvNv21Data != nullptr && yuvArray != nullptr) {
+                                memcpy(yuvNv21Data, pFrameNv21->data[0], y_step);//拷贝Y分量
+                                memcpy(yuvNv21Data + y_step, pFrameNv21->data[1], y_step / 2);//uv
+                                env->SetByteArrayRegion(yuvArray, 0, yuvLen, yuvNv21Data);
+                                env->CallVoidMethod(obj, mYuvCallBackId, yuvArray,
+                                                    Info.display_width,
+                                                    Info.display_height, mVideoCurDuration,
+                                                    mVideoAllDuration);
+                            }
+                        } else {
+                            env->CallVoidMethod(obj, mYuvCallBackId, NULL, Info.display_width,
                                                 Info.display_height, mVideoCurDuration,
                                                 mVideoAllDuration);
                         }
-                    } else {
-                        env->CallVoidMethod(obj, mYuvCallBackId, NULL, Info.display_width,
-                                            Info.display_height, mVideoCurDuration,
-                                            mVideoAllDuration);
                     }
                 }
+                if (ret < 0 && ret != AVERROR_EOF) {
+                    error = true;
+                    break;
+                }
             }
-            if (ret < 0 && ret != AVERROR_EOF) {
-                error = true;
-                break;
-            }
+            av_packet_unref(&packet);
         }
-        av_packet_unref(&packet);
+        ALOGD("end av_read_frame");
     }
-    ALOGD("end av_read_frame");
     if (yuvArray != nullptr && yuvNv21Data != nullptr) {
         env->ReleaseByteArrayElements(yuvArray, yuvNv21Data, JNI_COMMIT);
     }

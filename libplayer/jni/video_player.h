@@ -140,7 +140,7 @@ namespace kk {
         jmethodID mYuvCallBackId = nullptr;
         const char *mFileName = nullptr;
 
-        bool mNeedJ420ToI420 = false;
+        bool mNeedToI420 = false;
         double mVideoCurDuration = 0;
         double mVideoAllDuration = 0;
 
