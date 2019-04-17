@@ -73,14 +73,23 @@ public class VideoPlayer implements Closeable {
     }
 
     /**
+     * 要停止播放
      * @param width
      * @param height
      * @param stretch  是否拉伸
      * @param rotation 0-3
      * @see Surface#ROTATION_0,Surface#ROTATION_90,Surface#ROTATION_180,Surface#ROTATION_270
      */
-    public void setSize(int width, int height, boolean stretch, int rotation, int preview_rotation) {
-        native_set_size(nativePtr, width, height, stretch, rotation, preview_rotation);
+    public void setSize(final int width, final int height, final boolean stretch, final int rotation, final int preview_rotation) {
+        if (isPlaying()) {
+            stop();
+        }
+        postPlayer(new Runnable() {
+            @Override
+            public void run() {
+                native_set_size(nativePtr, width, height, stretch, rotation, preview_rotation);
+            }
+        }, "setSize");
     }
 
     public void setCallback(CallBack dataCallBack, boolean needNv21Data) {
@@ -88,6 +97,11 @@ public class VideoPlayer implements Closeable {
         native_set_callback(nativePtr, needNv21Data);
     }
 
+    /**
+     * 要停止播放
+     * @param surface
+     * @param texture
+     */
     public void setSurface(Surface surface, SurfaceTexture texture) {
         if (surface == null && texture != null) {
             if (mTexture != texture) {
@@ -98,7 +112,14 @@ public class VideoPlayer implements Closeable {
             surface = mTexSurface;
         }
         if (surface != mSurface) {
-            native_set_surface(nativePtr, surface);
+            mSurface = surface;
+            final Surface _surface = surface;
+            postPlayer(new Runnable() {
+                @Override
+                public void run() {
+                    native_set_surface(nativePtr, _surface);
+                }
+            }, "setSurface");
         }
     }
 
@@ -106,11 +127,23 @@ public class VideoPlayer implements Closeable {
         return source;
     }
 
-    public void setDataSource(String path) {
+    /**
+     * 要停止播放
+     * @param path
+     */
+    public void setDataSource(final String path) {
         if (!TextUtils.equals(source, path)) {
             mAllTime = 0;
             source = path;
-            native_set_data_source(nativePtr, path);
+            if (isPlaying()) {
+                stop();
+            }
+            postPlayer(new Runnable() {
+                @Override
+                public void run() {
+                    native_set_data_source(nativePtr, path);
+                }
+            }, "setDataSource");
         }
     }
 
@@ -129,6 +162,9 @@ public class VideoPlayer implements Closeable {
     private void playInner() {
         if (DEBUG) {
             Log.d(TAG, "playInner");
+        }
+        if (isPlaying()) {
+            return;
         }
         int ret = -30;
         if (mCallBack != null) {

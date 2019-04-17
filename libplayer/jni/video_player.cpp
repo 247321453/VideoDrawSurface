@@ -85,6 +85,7 @@ void VideoPlayer::Close() {
         ANativeWindow_release(pNativeWindow);
         pNativeWindow = nullptr;
     }
+    ALOGD("release by Close");
     Release(false);
 }
 
@@ -275,6 +276,7 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (mPlaying) {
         return 1;
     }
+    mPlaying = true;
     int ret = PreLoad();
     if (ret != 0) {
         return ret;
@@ -284,7 +286,6 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
     if (ret != 0) {
         return ret;
     }
-    mPlaying = true;
     AVPacket packet;
     ANativeWindow_Buffer windowBuffer;
     jbyte *yuvNv21Data = nullptr;

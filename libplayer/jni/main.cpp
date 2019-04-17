@@ -33,6 +33,7 @@ jni_player_set_size(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height
                     jboolean stretch, jint rotation, jint preview_rotation) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
+        ALOGD("release by SetSize");
         player->Release(true);
         player->SetSize(width, height, stretch, rotation, preview_rotation);
     }

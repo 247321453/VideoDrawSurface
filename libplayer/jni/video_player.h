@@ -45,6 +45,7 @@ namespace kk {
         }
 
         void SetDataSource(const char *path) {
+            ALOGD("release by SetDataSource");
             Release(false);
             ResetInfo(&Info);
             mVideoStream = -1;
