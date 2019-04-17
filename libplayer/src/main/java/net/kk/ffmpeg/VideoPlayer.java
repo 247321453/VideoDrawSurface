@@ -114,6 +114,9 @@ public class VideoPlayer implements Closeable {
         if (surface != mSurface) {
             mSurface = surface;
             final Surface _surface = surface;
+            if (DEBUG) {
+                Log.d(TAG, "setSurface:"+surface);
+            }
             postPlayer(new Runnable() {
                 @Override
                 public void run() {

@@ -343,6 +343,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                         sws_scale(pI420SwsCtx, (uint8_t const *const *) pFrame->data,
                                   pFrame->linesize, 0, Info.src_height,
                                   pFrameI420->data, pFrameI420->linesize);
+                        pFrameI420->width = pFrame->width;
+                        pFrameI420->height = pFrame->height;
                         tmpFrame = pFrameI420;
                         //cur = getCurTime();
                        // ALOGD("i420 time %ld", (cur - time));
@@ -413,7 +415,8 @@ int VideoPlayer::Play(JNIEnv *env, jobject obj) {
                             ret = av_frame_rotate(tmpFrame, mFixRotation, pPreviewFrame);
                             if (ret != 0) {
                                 error = true;
-                                ALOGE("av_frame_rotate error %d", ret);
+                                ALOGE("av_frame_rotate error %d， %dx%d@%d",
+                                        ret, tmpFrame->width, tmpFrame->height, mFixRotation*90);
                                 break;
                             }
                             tmpFrame = pPreviewFrame;
