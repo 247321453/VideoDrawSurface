@@ -61,6 +61,10 @@ public class VideoPlayer implements Closeable {
     private Surface mSurface;
     private SurfaceTexture mTexture;
 
+    public VideoPlayer() {
+        this(false);
+    }
+
     /**
      * @param rgb565 true则用rgb565，false则用rgba
      */
@@ -71,12 +75,12 @@ public class VideoPlayer implements Closeable {
     /**
      * @param width
      * @param height
-     * @param stretch 是否拉伸
-     * @param rotate  0-3
+     * @param stretch  是否拉伸
+     * @param rotation 0-3
      * @see Surface#ROTATION_0,Surface#ROTATION_90,Surface#ROTATION_180,Surface#ROTATION_270
      */
-    public void setSize(int width, int height, boolean stretch, int rotate) {
-        native_set_size(nativePtr, width, height, stretch, rotate);
+    public void setSize(int width, int height, boolean stretch, int rotation, int preview_rotation) {
+        native_set_size(nativePtr, width, height, stretch, rotation, preview_rotation);
     }
 
     public void setCallback(CallBack dataCallBack, boolean needNv21Data) {
@@ -86,13 +90,14 @@ public class VideoPlayer implements Closeable {
 
     public void setSurface(Surface surface, SurfaceTexture texture) {
         if (surface == null && texture != null) {
-            if(mTexture != texture) {
+            if (mTexture != texture) {
                 releaseTexture();
                 mTexSurface = new Surface(texture);
+                mTexture = texture;
             }
             surface = mTexSurface;
         }
-        if(surface != mSurface) {
+        if (surface != mSurface) {
             native_set_surface(nativePtr, surface);
         }
     }
@@ -448,7 +453,7 @@ public class VideoPlayer implements Closeable {
 
     private native void native_set_callback(long ptr, boolean callback);
 
-    private native void native_set_size(long ptr, int width, int height, boolean stretch, int rotation);
+    private native void native_set_size(long ptr, int width, int height, boolean stretch, int rotation, int preview_rotation);
 
     private native void native_set_data_source(long ptr, String path);
 

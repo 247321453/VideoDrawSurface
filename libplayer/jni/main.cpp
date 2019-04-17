@@ -30,11 +30,11 @@ int	I
 
 void
 jni_player_set_size(JNIEnv *env, jobject obj, jlong ptr, jint width, jint height,
-                    jboolean stretch, jint rotation) {
+                    jboolean stretch, jint rotation, jint preview_rotation) {
     if (ptr != 0) {
         kk::VideoPlayer *player = (kk::VideoPlayer *) ptr;
         player->Release(true);
-        player->SetSize(width, height, stretch, rotation);
+        player->SetSize(width, height, stretch, rotation, preview_rotation);
     }
 }
 
@@ -219,7 +219,7 @@ JNIEXPORT jint JNI_OnLoad(JavaVM *vm, void *) {
             {"native_create",             "(Z)J",                       (void *) jni_create_player},
             {"native_set_surface",        "(JLandroid/view/Surface;)V", (void *) jni_player_set_surface},
             {"native_set_callback",       "(JZ)V",                      (void *) jni_player_set_callback},
-            {"native_set_size",           "(JIIZI)V",                   (void *) jni_player_set_size},
+            {"native_set_size",           "(JIIZII)V",                   (void *) jni_player_set_size},
             {"native_get_width",          "(J)I",                       (void *) jni_player_get_width},
             {"native_get_height",         "(J)I",                       (void *) jni_player_get_height},
             {"native_get_rotate",         "(J)I",                       (void *) jni_player_get_rotate},

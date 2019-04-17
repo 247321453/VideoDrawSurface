@@ -179,59 +179,7 @@ int av_frame_rotate_crop(AVFrame *src, int rotation,
 }
 
 int av_frame_rotate(AVFrame *src, int rotation, AVFrame *dst) {
-    libyuv::RotationMode mode;
-    if (rotation == ROTATION_90) {
-        mode = libyuv::kRotate90;
-    } else if (rotation == ROTATION_180) {
-        mode = libyuv::kRotate180;
-    } else if (rotation == ROTATION_270) {
-        mode = libyuv::kRotate270;
-    } else {
-        mode = libyuv::kRotate0;
-    }
     int width = src->width;
     int height = src->height;
-
-    int ret;
-    if (mode == libyuv::kRotate90 || mode == libyuv::kRotate270) {
-        ret = libyuv::I420Rotate((const uint8_t *) src->data[0], src->linesize[0],
-                                 (const uint8_t *) src->data[1], src->linesize[1],
-                                 (const uint8_t *) src->data[2], src->linesize[2],
-                                 dst->data[0], height,
-                                 dst->data[1], height >> 1,
-                                 dst->data[2], height >> 1,
-                                 width, height, mode);
-        dst->width = height;
-        dst->height = width;
-        dst->linesize[0] = height;
-        dst->linesize[1] = height >> 1;
-        dst->linesize[2] = height >> 1;
-    } else {
-        if (mode == libyuv::kRotate0) {
-            dst->data[0] = src->data[0];
-            dst->data[1] = src->data[1];
-            dst->data[2] = src->data[2];
-            ret = 0;
-        } else {
-            ret = libyuv::I420Rotate((const uint8_t *) src->data[0], src->linesize[0],
-                                     (const uint8_t *) src->data[1], src->linesize[1],
-                                     (const uint8_t *) src->data[2], src->linesize[2],
-                                     dst->data[0], width,
-                                     dst->data[1], width >> 1,
-                                     dst->data[2], width >> 1,
-                                     width, height, mode);
-        }
-        dst->width = width;
-        dst->height = height;
-        dst->linesize[0] = width;
-        dst->linesize[1] = width >> 1;
-        dst->linesize[2] = width >> 1;
-    }
-
-    dst->format = src->format;
-    dst->pts = src->pts;
-    dst->pkt_pts = src->pkt_pts;
-    dst->pkt_dts = src->pkt_dts;
-    dst->key_frame = src->key_frame;
-    return ret;
+    return av_frame_rotate_crop(src, rotation, 0, 0, width, height, dst);
 }

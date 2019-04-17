@@ -28,11 +28,12 @@ namespace kk {
             mRGB565Mode = rgb565;
         }
 
-        void SetSize(int width, int height, bool stretch, int preRotation) {
+        void SetSize(int width, int height, bool stretch, int preRotation, int preview_rotation) {
             mStretchMode = stretch;
             mPreviewWidth = width;
             mPreviewHeight = height;
             mPreRotation = preRotation;
+            mFixRotation = preview_rotation;
         }
 
         void SetANativeWindow(ANativeWindow *surface) {
@@ -114,6 +115,7 @@ namespace kk {
         int mPreviewWidth = 0;
         int mPreviewHeight = 0;
         int mPreRotation = 0;
+        int mFixRotation= 0;
 
         SizeInfo Info;
 
@@ -121,15 +123,18 @@ namespace kk {
         ANativeWindow *pNativeWindow = nullptr;
         AVFormatContext *pFormatCtx = nullptr;
         AVCodecContext *pCodecCtx = nullptr;
-        AVFrame *pFrameI420 = nullptr;
         AVCodec *pCodec = nullptr;
+
+        AVFrame *pFrameI420 = nullptr;
         AVFrame *pFrameRGB = nullptr;
         AVFrame *pFrameNv21 = nullptr;
         AVFrame *pFrame = nullptr;
         AVFrame *pRotateCropFrame = nullptr;
-
         AVFrame *pScaleFrame = nullptr;
+
+        AVFrame *pPreviewFrame = nullptr;
         AVRational pTimeBase;
+        uint8_t *pPreviewBuf = nullptr;
         uint8_t *pI420Buf = nullptr;
         uint8_t *pScaleBuf = nullptr;
         uint8_t *pRotateCropBuf = nullptr;
