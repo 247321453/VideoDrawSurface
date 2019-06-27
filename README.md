@@ -1,4 +1,3 @@
-# FFMpegNativeWindow
-use ffmpeg to decode a movie file to yuv data, and use android ANativeWindow to render the yuv data
+# VideoDrawSurface
 
-使用ffmpeg解码视频文件，将解码后的yuv数据使用android的ANativeWindow播放
+使用ffmpeg解码视频文件，获取每一针图像绘制在surface，然后根据预设尺寸角度，进行旋转裁剪，缩放
